@@ -1,5 +1,7 @@
 import express, { Application } from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { systemRouter } from './modules/system/system.routes';
 import { authRouter } from './modules/auth/auth.routes';
 import { usersRouter } from './modules/users/users.routes';
@@ -47,6 +49,15 @@ export function createServer(): Application {
   app.use('/api/geo', geoRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/reports', reportsRouter);
+
+  // Servir frontend PWA en producción si existe la compilación (dist)
+  const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
+  if (fs.existsSync(frontendDistPath)) {
+    app.use(express.static(frontendDistPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(frontendDistPath, 'index.html'));
+    });
+  }
 
   // Manejador centralizado de errores
   app.use(errorHandler);

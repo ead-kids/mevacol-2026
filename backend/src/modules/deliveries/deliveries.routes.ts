@@ -523,17 +523,17 @@ deliveriesRouter.post('/', (req: Request, res: Response): void => {
     insertDeliveryTx();
 
     recordAuditLog({
-      user_id: userId,
+      userId,
       action: 'CREAR_ENTREGA',
-      entity_name: 'deliveries',
-      entity_id: deliveryId,
-      details_json: JSON.stringify({
+      entityName: 'deliveries',
+      entityId: deliveryId,
+      details: {
         delivery_code: deliveryCode,
         sale_id: sale.id,
         invoice_code: invoice?.invoice_code,
         status: initialStatus,
         delivery_user_id: assignedDeliverer?.id,
-      }),
+      },
     });
 
     res.status(201).json({
@@ -629,15 +629,15 @@ deliveriesRouter.patch('/:id/assign', (req: Request, res: Response): void => {
     assignTx();
 
     recordAuditLog({
-      user_id: userId,
+      userId,
       action: 'ASIGNAR_ENTREGADOR',
-      entity_name: 'deliveries',
-      entity_id: id,
-      details_json: JSON.stringify({
+      entityName: 'deliveries',
+      entityId: String(id),
+      details: {
         previous_deliverer: delivery.delivery_user_id,
         new_deliverer: delivery_user_id,
         new_status: newStatus,
-      }),
+      },
     });
 
     res.json({
@@ -732,15 +732,15 @@ deliveriesRouter.patch('/:id/status', (req: Request, res: Response): void => {
     updateStatusTx();
 
     recordAuditLog({
-      user_id: userId,
+      userId,
       action: 'CAMBIO_ESTADO_ENTREGA',
-      entity_name: 'deliveries',
-      entity_id: id,
-      details_json: JSON.stringify({
+      entityName: 'deliveries',
+      entityId: String(id),
+      details: {
         from_status: delivery.status,
         to_status: status,
         notes: historyNote,
-      }),
+      },
     });
 
     res.json({

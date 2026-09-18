@@ -21,13 +21,14 @@ Luego abre tu navegador en:
 
 ---
 
-## 👥 Usuarios Configurados para Pruebas (Fase 1)
+## 👥 Usuarios Configurados para Pruebas
 
 | Rol | Usuario | Contraseña | Dispositivo / Experiencia |
 | :--- | :--- | :--- | :--- |
-| **ADMINISTRADOR** | `admin` | `Password123!` | Computador (Escritorio) / Panel Administrativo |
-| **VENDEDOR** | `vendedor1` | `Password123!` | Celular / Táctil / Ventas en Campo |
+| **ADMINISTRADOR** | `admin` | `admin123` | Computador (Escritorio) / Panel Administrativo |
+| **VENDEDOR** | `vendedor1` | `vendedor123` | Celular / Táctil / Ventas en Campo |
 | **ENTREGADOR** | `entregador1` | `Password123!` | Celular / Táctil / Logística y Rutas |
+| **VENDEDOR 2** | `juan` | `123456` | Celular / Táctil / Ventas en Campo |
 
 ---
 
