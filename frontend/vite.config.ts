@@ -2,7 +2,13 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// En GitHub Pages el sitio corre en /mevacol-2026/ (subpath del repositorio).
+// VITE_BASE_URL se define como variable de entorno en el workflow de GitHub Actions.
+// En desarrollo local se usa '/' para que el proxy de Vite funcione correctamente.
+const base = process.env.VITE_BASE_URL || '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -46,4 +52,31 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // Separar librerías pesadas en chunks propios para reducir el bundle principal
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('recharts') || id.includes('victory-vendor') || id.includes('d3-')) {
+            return 'vendor-charts';
+          }
+          if (id.includes('leaflet')) {
+            return 'vendor-maps';
+          }
+          if (id.includes('dexie')) {
+            return 'vendor-db';
+          }
+          if (id.includes('lucide-react')) {
+            return 'vendor-icons';
+          }
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'vendor-react';
+          }
+        },
+      },
+    },
+    // Elevar el umbral de advertencia (después del code splitting el principal queda bajo 500KB)
+    chunkSizeWarningLimit: 600,
+  },
 });
+

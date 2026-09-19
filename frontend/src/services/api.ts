@@ -25,7 +25,10 @@ import type {
   FilterOptions,
 } from '../types';
 
-const API_BASE = '/api';
+// En desarrollo: usa el proxy de Vite (/api → localhost:4000).
+// En producción: configura VITE_API_URL en frontend/.env con la URL completa del backend.
+// Ejemplo producción: VITE_API_URL=https://api.midominio.com/api
+const API_BASE: string = (import.meta as any).env?.VITE_API_URL ?? '/api';
 
 class ApiService {
   private token: string | null = null;
@@ -165,6 +168,13 @@ class ApiService {
     });
   }
 
+  async deleteUser(userId: string, adminPassword: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/users/${userId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ admin_password: adminPassword }),
+    });
+  }
+
   // --- Módulo de Clientes (Fase 2) ---
   async getCustomers(params?: { search?: string; status?: string }): Promise<{ success: boolean; customers: Customer[]; count: number }> {
     const query = new URLSearchParams();
@@ -252,6 +262,7 @@ class ApiService {
     cost_cop?: number;
     current_stock?: number;
     min_stock?: number;
+    image_url?: string | null;
   }): Promise<{ success: boolean; product: Product; message: string }> {
     return this.request<{ success: boolean; product: Product; message: string }>('/products', {
       method: 'POST',
@@ -271,11 +282,19 @@ class ApiService {
       cost_cop?: number;
       min_stock?: number;
       is_active?: number;
+      image_url?: string | null;
     }
   ): Promise<{ success: boolean; message: string }> {
     return this.request<{ success: boolean; message: string }>(`/products/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  }
+
+  async deleteProduct(id: string, adminPassword: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/products/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ admin_password: adminPassword }),
     });
   }
 

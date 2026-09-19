@@ -2,6 +2,7 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import { config } from './config';
 import { systemRouter } from './modules/system/system.routes';
 import { authRouter } from './modules/auth/auth.routes';
 import { usersRouter } from './modules/users/users.routes';
@@ -18,9 +19,14 @@ import { errorHandler } from './middlewares/error.middleware';
 export function createServer(): Application {
   const app = express();
 
+  // Parsear orígenes CORS desde la variable de entorno (puede ser '*' o lista separada por comas)
+  const corsOrigins = config.CORS_ORIGIN === '*'
+    ? '*'
+    : config.CORS_ORIGIN.split(',').map((o) => o.trim());
+
   // Middlewares estándar de seguridad y parseo
   app.use(cors({
-    origin: '*', // Permitir conexión desde PWA móvil y escritorio local
+    origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'],
   }));
@@ -54,7 +60,7 @@ export function createServer(): Application {
   const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
   if (fs.existsSync(frontendDistPath)) {
     app.use(express.static(frontendDistPath));
-    app.get('*', (req, res) => {
+    app.use((req, res) => {
       res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
   }

@@ -3,6 +3,10 @@ node_modules
 *.log
 backend/dist
 frontend/dist
+backend/*.db
 backend/*.db-shm
 backend/*.db-wal
+backend/*.db-journal
 .env
+*/.env
+*.env.local
