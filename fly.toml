@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# MEVACOL — Configuración de Fly.io
+# fly.toml — generado para despliegue del backend Node.js + SQLite
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Nombre de la app en Fly.io (debe ser único globalmente).
+# Cámbialo si "mevacol-api" ya está tomado: mevacol-backend-2026, etc.
+app = "mevacol-api"
+
+# Región primaria: gru = São Paulo (más cercana a Colombia)
+# Alternativas: mia = Miami, iad = Virginia
+primary_region = "gru"
+
+# Usar el Dockerfile en la raíz del proyecto
+[build]
+  dockerfile = "Dockerfile"
+
+# Variables de entorno en producción
+# Los SECRETOS (JWT_SECRET, CORS_ORIGIN) se configuran con:
+#   fly secrets set JWT_SECRET="tu_secreto_aqui"
+# NO los pongas aquí en texto plano.
+[env]
+  PORT       = "8080"
+  NODE_ENV   = "production"
+  DB_FILE    = "/data/mevacol.db"
+
+# Configuración del servicio HTTP
+[http_service]
+  internal_port        = 8080
+  force_https          = true
+  auto_stop_machines   = "stop"
+  auto_start_machines  = true
+  min_machines_running = 0
+  processes            = ["app"]
+
+# Health check — Fly.io verifica que el backend esté vivo
+[[http_service.checks]]
+  grace_period  = "10s"
+  interval      = "30s"
+  method        = "GET"
+  path          = "/api/health"
+  timeout       = "5s"
+
+# Volumen persistente para SQLite
+# IMPORTANTE: debes crear el volumen antes del primer deploy:
+#   fly volumes create mevacol_data --size 1 --region gru
+[[mounts]]
+  source      = "mevacol_data"
+  destination = "/data"
+
+# Máquina virtual (plan gratuito de Fly.io)
+[[vm]]
+  memory   = "256mb"
+  cpu_kind = "shared"
+  cpus     = 1

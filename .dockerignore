@@ -1,0 +1,39 @@
+# ─── Ignorar en el build de Docker ───────────────────────────────────────────
+# No copiar node_modules (se instalan en el contenedor)
+**/node_modules
+node_modules
+
+# No copiar builds previos
+backend/dist
+frontend/dist
+
+# No copiar la base de datos local (se crea en el volumen de Fly.io)
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/*.db-journal
+
+# No copiar archivos de entorno con secretos reales
+.env
+*/.env
+*.env.local
+
+# No copiar carpeta del repositorio gh-pages
+mevacol-2026/
+
+# No copiar logs
+*.log
+
+# No copiar control de versiones
+.git
+.github
+
+# No copiar el frontend (solo se despliega en GitHub Pages)
+# El backend no necesita el código fuente del frontend
+frontend/src
+frontend/public
+frontend/index.html
+frontend/vite.config.ts
+frontend/tsconfig*.json
+frontend/package*.json
+frontend/.env*
