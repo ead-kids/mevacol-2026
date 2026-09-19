@@ -1,13 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../database/db';
+import { queryOne, queryAll, queryRun } from '../../database/db';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 
 export const geoRouter = Router();
-
-// Todas las rutas de geolocalización requieren autenticación
 geoRouter.use(authMiddleware);
 
-// Diccionario de coordenadas de referencia para ciudades de Colombia
 export const COLOMBIAN_CITIES_COORDS: Record<string, { lat: number; lng: number }> = {
   bogota: { lat: 4.6097, lng: -74.0817 },
   'bogotá': { lat: 4.6097, lng: -74.0817 },
@@ -39,7 +36,6 @@ export const COLOMBIAN_CITIES_COORDS: Record<string, { lat: number; lng: number 
   sincelejo: { lat: 9.3047, lng: -75.3978 },
 };
 
-// Sede Central MEVACOL por defecto
 export const DEFAULT_DEPOT = {
   name: 'Sede Central MEVACOL',
   address: 'Calle 100 # 15-20, Bogotá',
@@ -48,108 +44,60 @@ export const DEFAULT_DEPOT = {
   lng: -74.0536,
 };
 
-// Función auxiliar: Cálculo de distancia euclidiana / Haversine (en km)
-export function calculateHaversineKm(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // Radio de la Tierra en km
+export function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 100) / 100;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 100) / 100;
 }
 
-// 1. Geocodificar Dirección Individual con Nominatim + Fallback por Ciudad
+// 1. Geocodificar Dirección Individual
 geoRouter.get('/geocode', async (req: Request, res: Response): Promise<void> => {
   try {
     const address = String(req.query.address || '').trim();
     const city = String(req.query.city || '').trim();
 
-    if (!address && !city) {
-      res.status(400).json({ success: false, error: 'Se requiere dirección o ciudad para geocodificar.' });
-      return;
-    }
+    if (!address && !city) { res.status(400).json({ success: false, error: 'Se requiere dirección o ciudad para geocodificar.' }); return; }
 
     const cityKey = city.toLowerCase();
     const cityFallback = COLOMBIAN_CITIES_COORDS[cityKey] || DEFAULT_DEPOT;
-
-    // Intentar consulta a Nominatim OpenStreetMap si hay dirección
     let geoResult: { lat: number; lng: number; display_name: string; is_approximate: boolean } | null = null;
 
     if (address) {
       try {
         const query = `${address}, ${city ? city + ', ' : ''}Colombia`;
         const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
-        
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
-
-        const response = await fetch(url, {
-          headers: {
-            'User-Agent': 'MEVACOL-ERP-Logistica/1.0 (contacto@mevacol.com)',
-            'Accept-Language': 'es',
-          },
-          signal: controller.signal,
-        });
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const response = await fetch(url, { headers: { 'User-Agent': 'MEVACOL-ERP-Logistica/1.0', 'Accept-Language': 'es' }, signal: controller.signal });
         clearTimeout(timeoutId);
-
         if (response.ok) {
           const data = (await response.json()) as any[];
           if (Array.isArray(data) && data.length > 0 && data[0].lat && data[0].lon) {
-            geoResult = {
-              lat: parseFloat(data[0].lat),
-              lng: parseFloat(data[0].lon),
-              display_name: data[0].display_name,
-              is_approximate: false,
-            };
+            geoResult = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), display_name: data[0].display_name, is_approximate: false };
           }
         }
       } catch (fetchErr) {
-        // En caso de timeout o bloqueo de red, usar fallback
-        console.warn('Aviso al consultar Nominatim (se usará aproximación):', fetchErr);
+        console.warn('Aviso al consultar Nominatim:', fetchErr);
       }
     }
 
-    // Si Nominatim no encontró la calle exacta o falló, usar aproximación por ciudad
     if (!geoResult) {
-      // Agregar ligera variación aleatoria determinista basada en el hash de la dirección
-      // para que varios clientes en la misma ciudad no queden exactamente en el mismo pixel
       let hash = 0;
-      for (let i = 0; i < address.length; i++) {
-        hash = (hash << 5) - hash + address.charCodeAt(i);
-        hash |= 0;
-      }
+      for (let i = 0; i < address.length; i++) { hash = (hash << 5) - hash + address.charCodeAt(i); hash |= 0; }
       const latOffset = ((Math.abs(hash) % 100) - 50) * 0.0003;
       const lngOffset = (((Math.abs(hash) >> 2) % 100) - 50) * 0.0003;
-
-      geoResult = {
-        lat: Math.round((cityFallback.lat + latOffset) * 100000) / 100000,
-        lng: Math.round((cityFallback.lng + lngOffset) * 100000) / 100000,
-        display_name: `${address ? address + ', ' : ''}${city || 'Colombia'} (Ubicación aproximada)`,
-        is_approximate: true,
-      };
+      geoResult = { lat: Math.round((cityFallback.lat + latOffset) * 100000) / 100000, lng: Math.round((cityFallback.lng + lngOffset) * 100000) / 100000, display_name: `${address ? address + ', ' : ''}${city || 'Colombia'} (Ubicación aproximada)`, is_approximate: true };
     }
 
-    res.json({
-      success: true,
-      data: geoResult,
-    });
+    res.json({ success: true, data: geoResult });
   } catch (error: any) {
-    console.error('Error en geocodificación:', error);
     res.status(500).json({ success: false, error: 'Error al procesar geocodificación.' });
   }
 });
 
-// 2. Obtener / Sincronizar Coordenadas de Entregas Activas (Para Mapa)
+// 2. Obtener Coordenadas de Entregas Activas
 geoRouter.post('/deliveries-locations', async (req: Request, res: Response): Promise<void> => {
   try {
     const userRole = req.user!.role_code;
@@ -159,14 +107,8 @@ geoRouter.post('/deliveries-locations', async (req: Request, res: Response): Pro
     let whereClause = 'WHERE 1=1';
     const params: any[] = [];
 
-    // Control por rol
-    if (userRole === 'ENTREGADOR') {
-      whereClause += ' AND d.delivery_user_id = ?';
-      params.push(userId);
-    } else if (userRole === 'VENDEDOR') {
-      whereClause += ' AND s.seller_user_id = ?';
-      params.push(userId);
-    }
+    if (userRole === 'ENTREGADOR') { whereClause += ' AND d.delivery_user_id = ?'; params.push(userId); }
+    else if (userRole === 'VENDEDOR') { whereClause += ' AND s.seller_user_id = ?'; params.push(userId); }
 
     if (Array.isArray(delivery_ids) && delivery_ids.length > 0) {
       const placeholders = delivery_ids.map(() => '?').join(',');
@@ -177,160 +119,72 @@ geoRouter.post('/deliveries-locations', async (req: Request, res: Response): Pro
       params.push(status_filter);
     }
 
-    const rows = db.prepare(`
-      SELECT 
-        d.id,
-        d.delivery_code,
-        d.customer_name,
-        d.customer_phone,
-        d.delivery_address,
-        d.delivery_city,
-        d.status,
-        d.scheduled_date,
-        d.latitude,
-        d.longitude,
-        d.geocoded_at,
-        d.delivery_user_id,
-        u.full_name as deliverer_name,
-        s.total_cop as sale_total_cop,
-        inv.invoice_code
-      FROM deliveries d
-      JOIN sales s ON d.sale_id = s.id
+    const rows = await queryAll<any>(`
+      SELECT d.id, d.delivery_code, d.customer_name, d.customer_phone, d.delivery_address, d.delivery_city, d.status,
+        d.scheduled_date, d.latitude, d.longitude, d.geocoded_at, d.delivery_user_id,
+        u.full_name as deliverer_name, s.total_cop as sale_total_cop, inv.invoice_code
+      FROM deliveries d JOIN sales s ON d.sale_id = s.id
       LEFT JOIN invoices inv ON d.invoice_id = inv.id
       LEFT JOIN users u ON d.delivery_user_id = u.id
-      ${whereClause}
-      ORDER BY d.scheduled_date ASC, d.created_at ASC
-    `).all(...params) as any[];
-
-    // Actualizar coordenadas faltantes si es necesario
-    const updateCoordStmt = db.prepare(`
-      UPDATE deliveries 
-      SET latitude = ?, longitude = ?, geocoded_at = datetime('now')
-      WHERE id = ?
-    `);
+      ${whereClause} ORDER BY d.scheduled_date ASC, d.created_at ASC
+    `, params);
 
     const resultLocations = [];
-
     for (const d of rows) {
       let lat = d.latitude;
       let lng = d.longitude;
 
       if (!lat || !lng) {
-        // Asignar coordenadas iniciales usando la ciudad y dirección
         const cityKey = (d.delivery_city || '').toLowerCase().trim();
         const base = COLOMBIAN_CITIES_COORDS[cityKey] || DEFAULT_DEPOT;
-
         let hash = 0;
         const str = (d.delivery_address || '') + (d.customer_name || '');
-        for (let i = 0; i < str.length; i++) {
-          hash = (hash << 5) - hash + str.charCodeAt(i);
-          hash |= 0;
-        }
+        for (let i = 0; i < str.length; i++) { hash = (hash << 5) - hash + str.charCodeAt(i); hash |= 0; }
         const latOffset = ((Math.abs(hash) % 80) - 40) * 0.0004;
         const lngOffset = (((Math.abs(hash) >> 2) % 80) - 40) * 0.0004;
-
         lat = Math.round((base.lat + latOffset) * 100000) / 100000;
         lng = Math.round((base.lng + lngOffset) * 100000) / 100000;
-
-        try {
-          updateCoordStmt.run(lat, lng, d.id);
-        } catch (uErr) {
-          console.warn('Aviso al guardar coordenadas en delivery:', uErr);
-        }
+        try { await queryRun(`UPDATE deliveries SET latitude = ?, longitude = ?, geocoded_at = NOW() WHERE id = ?`, [lat, lng, d.id]); } catch (uErr) { console.warn('Aviso al guardar coordenadas:', uErr); }
       }
 
-      resultLocations.push({
-        id: d.id,
-        delivery_code: d.delivery_code,
-        customer_name: d.customer_name,
-        customer_phone: d.customer_phone,
-        delivery_address: d.delivery_address,
-        delivery_city: d.delivery_city,
-        status: d.status,
-        scheduled_date: d.scheduled_date,
-        latitude: lat,
-        longitude: lng,
-        delivery_user_id: d.delivery_user_id,
-        deliverer_name: d.deliverer_name || 'Sin asignar',
-        sale_total_cop: d.sale_total_cop,
-        invoice_code: d.invoice_code,
-      });
+      resultLocations.push({ id: d.id, delivery_code: d.delivery_code, customer_name: d.customer_name, customer_phone: d.customer_phone, delivery_address: d.delivery_address, delivery_city: d.delivery_city, status: d.status, scheduled_date: d.scheduled_date, latitude: lat, longitude: lng, delivery_user_id: d.delivery_user_id, deliverer_name: d.deliverer_name || 'Sin asignar', sale_total_cop: d.sale_total_cop, invoice_code: d.invoice_code });
     }
 
-    res.json({
-      success: true,
-      depot: DEFAULT_DEPOT,
-      locations: resultLocations,
-    });
+    res.json({ success: true, depot: DEFAULT_DEPOT, locations: resultLocations });
   } catch (error: any) {
-    console.error('Error al obtener ubicaciones de entregas:', error);
     res.status(500).json({ success: false, error: 'Error al cargar ubicaciones de entregas.' });
   }
 });
 
-// 3. Planificador / Optimizador de Ruta Multiparada (Algoritmo Vecino Más Cercano)
-geoRouter.post('/route-plan', (req: Request, res: Response): void => {
+// 3. Planificador / Optimizador de Ruta Multiparada
+geoRouter.post('/route-plan', async (req: Request, res: Response): Promise<void> => {
   try {
     const { origin, delivery_ids } = req.body || {};
 
-    if (!Array.isArray(delivery_ids) || delivery_ids.length === 0) {
-      res.status(400).json({ success: false, error: 'Debes seleccionar al menos una entrega para calcular la ruta.' });
-      return;
-    }
+    if (!Array.isArray(delivery_ids) || delivery_ids.length === 0) { res.status(400).json({ success: false, error: 'Debes seleccionar al menos una entrega para calcular la ruta.' }); return; }
 
-    // Coordenadas de partida (GPS del repartidor en memoria o depósito central)
-    const startPoint = {
-      lat: origin?.latitude || DEFAULT_DEPOT.lat,
-      lng: origin?.longitude || DEFAULT_DEPOT.lng,
-      label: origin?.label || 'Punto de Partida',
-    };
+    const startPoint = { lat: origin?.latitude || DEFAULT_DEPOT.lat, lng: origin?.longitude || DEFAULT_DEPOT.lng, label: origin?.label || 'Punto de Partida' };
 
     const placeholders = delivery_ids.map(() => '?').join(',');
-    const deliveries = db.prepare(`
-      SELECT 
-        d.id,
-        d.delivery_code,
-        d.customer_name,
-        d.customer_phone,
-        d.delivery_address,
-        d.delivery_city,
-        d.status,
-        d.scheduled_date,
-        d.latitude,
-        d.longitude,
-        u.full_name as deliverer_name,
-        s.total_cop as sale_total_cop,
-        inv.invoice_code
-      FROM deliveries d
-      JOIN sales s ON d.sale_id = s.id
+    const deliveries = await queryAll<any>(`
+      SELECT d.id, d.delivery_code, d.customer_name, d.customer_phone, d.delivery_address, d.delivery_city,
+        d.status, d.scheduled_date, d.latitude, d.longitude,
+        u.full_name as deliverer_name, s.total_cop as sale_total_cop, inv.invoice_code
+      FROM deliveries d JOIN sales s ON d.sale_id = s.id
       LEFT JOIN invoices inv ON d.invoice_id = inv.id
       LEFT JOIN users u ON d.delivery_user_id = u.id
       WHERE d.id IN (${placeholders})
-    `).all(...delivery_ids) as any[];
+    `, delivery_ids);
 
-    if (deliveries.length === 0) {
-      res.status(404).json({ success: false, error: 'No se encontraron las entregas especificadas.' });
-      return;
-    }
+    if (deliveries.length === 0) { res.status(404).json({ success: false, error: 'No se encontraron las entregas especificadas.' }); return; }
 
-    // Asegurar coordenadas válidas en cada punto
     const unvisited = deliveries.map((d) => {
       let lat = d.latitude;
       let lng = d.longitude;
-      if (!lat || !lng) {
-        const cityKey = (d.delivery_city || '').toLowerCase().trim();
-        const base = COLOMBIAN_CITIES_COORDS[cityKey] || DEFAULT_DEPOT;
-        lat = base.lat;
-        lng = base.lng;
-      }
-      return {
-        ...d,
-        latitude: lat,
-        longitude: lng,
-      };
+      if (!lat || !lng) { const cityKey = (d.delivery_city || '').toLowerCase().trim(); const base = COLOMBIAN_CITIES_COORDS[cityKey] || DEFAULT_DEPOT; lat = base.lat; lng = base.lng; }
+      return { ...d, latitude: lat, longitude: lng };
     });
 
-    // Secuenciador Greedy TSP (Vecino más cercano)
     const orderedStops = [];
     let currentPos = { lat: startPoint.lat, lng: startPoint.lng };
     let totalDistanceKm = 0;
@@ -338,50 +192,23 @@ geoRouter.post('/route-plan', (req: Request, res: Response): void => {
     while (unvisited.length > 0) {
       let closestIdx = 0;
       let minDistance = Infinity;
-
       for (let i = 0; i < unvisited.length; i++) {
-        const dist = calculateHaversineKm(
-          currentPos.lat,
-          currentPos.lng,
-          unvisited[i].latitude,
-          unvisited[i].longitude
-        );
-        if (dist < minDistance) {
-          minDistance = dist;
-          closestIdx = i;
-        }
+        const dist = calculateHaversineKm(currentPos.lat, currentPos.lng, unvisited[i].latitude, unvisited[i].longitude);
+        if (dist < minDistance) { minDistance = dist; closestIdx = i; }
       }
-
       const nextStop = unvisited.splice(closestIdx, 1)[0];
       totalDistanceKm += minDistance;
-
-      orderedStops.push({
-        step_number: orderedStops.length + 1,
-        ...nextStop,
-        distance_from_prev_km: Math.round(minDistance * 100) / 100,
-        cumulative_distance_km: Math.round(totalDistanceKm * 100) / 100,
-      });
-
+      orderedStops.push({ step_number: orderedStops.length + 1, ...nextStop, distance_from_prev_km: Math.round(minDistance * 100) / 100, cumulative_distance_km: Math.round(totalDistanceKm * 100) / 100 });
       currentPos = { lat: nextStop.latitude, lng: nextStop.longitude };
     }
 
-    // Estimación de tiempo: Velocidad media urbana 25 km/h + 10 min por entrega en sitio
     const travelTimeHours = totalDistanceKm / 25;
     const travelTimeMinutes = Math.round(travelTimeHours * 60);
     const serviceTimeMinutes = orderedStops.length * 10;
     const totalDurationMinutes = travelTimeMinutes + serviceTimeMinutes;
 
-    res.json({
-      success: true,
-      origin: startPoint,
-      stops_count: orderedStops.length,
-      total_distance_km: Math.round(totalDistanceKm * 10) / 10,
-      estimated_travel_minutes: travelTimeMinutes,
-      estimated_total_minutes: totalDurationMinutes,
-      stops: orderedStops,
-    });
+    res.json({ success: true, origin: startPoint, stops_count: orderedStops.length, total_distance_km: Math.round(totalDistanceKm * 10) / 10, estimated_travel_minutes: travelTimeMinutes, estimated_total_minutes: totalDurationMinutes, stops: orderedStops });
   } catch (error: any) {
-    console.error('Error al planificar ruta multiparada:', error);
     res.status(500).json({ success: false, error: 'Error al calcular la ruta de entrega.' });
   }
 });

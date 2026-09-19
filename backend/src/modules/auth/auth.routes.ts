@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
-import { db, recordAuditLog } from '../../database/db';
+import { queryOne, queryRun, recordAuditLog } from '../../database/db';
 import { config } from '../../config';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 
@@ -11,14 +11,13 @@ export const authRouter = Router();
 // 1. Asistente Seguro de Configuración del Primer Administrador (Bootstrap)
 authRouter.post('/bootstrap', async (req: Request, res: Response): Promise<void> => {
   try {
-    // Validar si ya existe un administrador en el sistema
-    const adminCheck = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM users 
+    const adminCheck = await queryOne<{ count: string }>(`
+      SELECT COUNT(*) as count
+      FROM users
       WHERE role_code = 'ADMINISTRADOR'
-    `).get() as { count: number };
+    `);
 
-    if (adminCheck.count > 0) {
+    if (parseInt(adminCheck?.count ?? '0', 10) > 0) {
       res.status(400).json({
         success: false,
         error: 'El sistema ya ha sido inicializado con un Administrador. Inicie sesión para continuar.',
@@ -57,18 +56,17 @@ authRouter.post('/bootstrap', async (req: Request, res: Response): Promise<void>
     const passwordHash = await bcrypt.hash(password, 10);
     const userId = uuidv4();
 
-    const insertStmt = db.prepare(`
-      INSERT INTO users (id, username, full_name, email, password_hash, role_code, phone, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, 'ADMINISTRADOR', ?, 1, datetime('now'), datetime('now'))
-    `);
-
-    insertStmt.run(
-      userId,
-      cleanUsername,
-      full_name.trim(),
-      email ? String(email).trim().toLowerCase() : null,
-      passwordHash,
-      phone ? String(phone).trim() : null
+    await queryRun(
+      `INSERT INTO users (id, username, full_name, email, password_hash, role_code, phone, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'ADMINISTRADOR', ?, 1, NOW(), NOW())`,
+      [
+        userId,
+        cleanUsername,
+        full_name.trim(),
+        email ? String(email).trim().toLowerCase() : null,
+        passwordHash,
+        phone ? String(phone).trim() : null,
+      ]
     );
 
     // Registro de auditoría
@@ -126,13 +124,11 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
 
     const cleanIdentifier = String(identifier).trim().toLowerCase();
 
-    const userStmt = db.prepare(`
+    const user = await queryOne<any>(`
       SELECT id, username, full_name, email, password_hash, role_code, phone, is_active
       FROM users
       WHERE LOWER(username) = ? OR LOWER(email) = ?
-    `);
-
-    const user = userStmt.get(cleanIdentifier, cleanIdentifier) as any;
+    `, [cleanIdentifier, cleanIdentifier]);
 
     if (!user) {
       res.status(401).json({

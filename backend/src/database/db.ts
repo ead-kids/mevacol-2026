@@ -8,9 +8,9 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { pool, execRaw, queryOne, queryAll, queryRun } from './pgDb';
+import { pool, execRaw, queryOne, queryAll, queryRun, withTransaction } from './pgDb';
 
-export { queryOne, queryAll, queryRun };
+export { queryOne, queryAll, queryRun, withTransaction };
 export { pool };
 
 // ── Inicialización del esquema ────────────────────────────────────────────────

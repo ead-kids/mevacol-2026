@@ -1,23 +1,20 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../database/db';
+import { queryOne } from '../../database/db';
 
 export const systemRouter = Router();
 
 // Endpoint de diagnóstico y estado de inicialización
-systemRouter.get('/status', (req: Request, res: Response) => {
+systemRouter.get('/status', async (req: Request, res: Response) => {
   try {
-    const adminRow = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM users 
-      WHERE role_code = 'ADMINISTRADOR'
-    `).get() as { count: number };
+    const adminRow = await queryOne<{ count: string }>(
+      `SELECT COUNT(*) as count FROM users WHERE role_code = 'ADMINISTRADOR'`
+    );
 
-    const usersRow = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM users
-    `).get() as { count: number };
+    const usersRow = await queryOne<{ count: string }>(
+      `SELECT COUNT(*) as count FROM users`
+    );
 
-    const isBootstrapped = adminRow.count > 0;
+    const isBootstrapped = parseInt(adminRow?.count ?? '0', 10) > 0;
 
     res.json({
       success: true,
@@ -25,7 +22,7 @@ systemRouter.get('/status', (req: Request, res: Response) => {
       version: '1.0.0',
       phase: 1,
       bootstrapped: isBootstrapped,
-      totalUsers: usersRow.count,
+      totalUsers: parseInt(usersRow?.count ?? '0', 10),
       serverTime: new Date().toISOString(),
       offlineReady: true,
     });
