@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
-import { db } from '../database/db';
+import { queryOne } from '../database/db';
 
 export interface AuthUser {
   id: string;
@@ -41,39 +41,45 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     };
 
     // Validar en tiempo real que el usuario siga existiendo y esté activo
-    const userStmt = db.prepare(`
+    queryOne<AuthUser & { is_active: number }>(`
       SELECT id, username, full_name, email, role_code, phone, is_active
       FROM users
       WHERE id = ?
-    `);
-    const user = userStmt.get(decoded.userId) as (AuthUser & { is_active: number }) | undefined;
+    `, [decoded.userId])
+      .then((user) => {
+        if (!user) {
+          res.status(401).json({
+            success: false,
+            error: 'El usuario asociado a esta sesión ya no existe.',
+          });
+          return;
+        }
 
-    if (!user) {
-      res.status(401).json({
-        success: false,
-        error: 'El usuario asociado a esta sesión ya no existe.',
+        if (user.is_active !== 1) {
+          res.status(403).json({
+            success: false,
+            error: 'Esta cuenta ha sido desactivada por la administración.',
+          });
+          return;
+        }
+
+        req.user = {
+          id: user.id,
+          username: user.username,
+          full_name: user.full_name,
+          email: user.email,
+          role_code: user.role_code,
+          phone: user.phone,
+        };
+
+        next();
+      })
+      .catch(() => {
+        res.status(401).json({
+          success: false,
+          error: 'Sesión expirada o token inválido. Por favor inicie sesión nuevamente.',
+        });
       });
-      return;
-    }
-
-    if (user.is_active !== 1) {
-      res.status(403).json({
-        success: false,
-        error: 'Esta cuenta ha sido desactivada por la administración.',
-      });
-      return;
-    }
-
-    req.user = {
-      id: user.id,
-      username: user.username,
-      full_name: user.full_name,
-      email: user.email,
-      role_code: user.role_code,
-      phone: user.phone,
-    };
-
-    next();
   } catch (err) {
     res.status(401).json({
       success: false,
