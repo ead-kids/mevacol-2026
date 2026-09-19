@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { db, recordAuditLog } from '../../database/db';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -76,6 +77,7 @@ productsRouter.get('/', (req: Request, res: Response): void => {
         current_stock,
         min_stock,
         is_active,
+        image_url,
         created_at,
         updated_at
       FROM products
@@ -214,6 +216,7 @@ productsRouter.post('/', requireRole(['ADMINISTRADOR']), (req: Request, res: Res
       cost_cop = 0,
       current_stock = 0,
       min_stock = 5,
+      image_url,
     } = req.body;
 
     if (!code || !String(code).trim()) {
@@ -252,12 +255,13 @@ productsRouter.post('/', requireRole(['ADMINISTRADOR']), (req: Request, res: Res
     const numCost = Math.round(Number(cost_cop));
     const numStock = Math.max(0, Math.round(Number(current_stock)));
     const numMinStock = Math.max(0, Math.round(Number(min_stock)));
+    const cleanImageUrl = image_url && String(image_url).trim() ? String(image_url).trim() : null;
 
     db.prepare(`
       INSERT INTO products (
         id, code, name, description, category, unit_measure,
-        price_cop, cost_cop, current_stock, min_stock, is_active, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
+        price_cop, cost_cop, current_stock, min_stock, is_active, image_url, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))
     `).run(
       newId,
       cleanCode,
@@ -268,7 +272,8 @@ productsRouter.post('/', requireRole(['ADMINISTRADOR']), (req: Request, res: Res
       numPrice,
       numCost,
       numStock,
-      numMinStock
+      numMinStock,
+      cleanImageUrl
     );
 
     // Auditoría
@@ -315,6 +320,7 @@ productsRouter.put('/:id', requireRole(['ADMINISTRADOR']), (req: Request, res: R
       cost_cop,
       min_stock,
       is_active,
+      image_url,
     } = req.body;
 
     const existingProduct = db.prepare(`SELECT * FROM products WHERE id = ?`).get(String(id)) as any;
@@ -353,6 +359,7 @@ productsRouter.put('/:id', requireRole(['ADMINISTRADOR']), (req: Request, res: R
     const numCost = cost_cop !== undefined ? Math.round(Number(cost_cop)) : existingProduct.cost_cop;
     const numMinStock = min_stock !== undefined ? Math.max(0, Math.round(Number(min_stock))) : existingProduct.min_stock;
     const activeStatus = is_active !== undefined ? (is_active ? 1 : 0) : existingProduct.is_active;
+    const finalImageUrl = image_url !== undefined ? (image_url && String(image_url).trim() ? String(image_url).trim() : null) : existingProduct.image_url;
 
     db.prepare(`
       UPDATE products SET
@@ -365,6 +372,7 @@ productsRouter.put('/:id', requireRole(['ADMINISTRADOR']), (req: Request, res: R
         cost_cop = ?,
         min_stock = ?,
         is_active = ?,
+        image_url = ?,
         updated_at = datetime('now')
       WHERE id = ?
     `).run(
@@ -377,6 +385,7 @@ productsRouter.put('/:id', requireRole(['ADMINISTRADOR']), (req: Request, res: R
       numCost,
       numMinStock,
       activeStatus,
+      finalImageUrl,
       String(id)
     );
 
@@ -529,5 +538,70 @@ productsRouter.patch('/:id/status', requireRole(['ADMINISTRADOR']), (req: Reques
   } catch (error: any) {
     console.error('Error al cambiar estado del producto:', error);
     res.status(500).json({ success: false, error: 'Error al cambiar estado: ' + error.message });
+  }
+});
+
+// 8. Eliminar Producto permanentemente con autorización por contraseña (Solo ADMINISTRADOR)
+productsRouter.delete('/:id', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { admin_password } = req.body;
+
+    if (!admin_password) {
+      res.status(400).json({
+        success: false,
+        error: 'Debe ingresar su contraseña de administrador para autorizar la eliminación del producto.',
+      });
+      return;
+    }
+
+    // Validar contraseña del administrador actual
+    const currentAdmin = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user!.id) as any;
+    if (!currentAdmin) {
+      res.status(401).json({ success: false, error: 'Sesión no válida.' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(String(admin_password), currentAdmin.password_hash);
+    if (!passwordValid) {
+      res.status(401).json({
+        success: false,
+        error: 'Contraseña de administrador incorrecta. Autorización denegada.',
+      });
+      return;
+    }
+
+    const product = db.prepare('SELECT id, code, name FROM products WHERE id = ?').get(String(id)) as any;
+    if (!product) {
+      res.status(404).json({ success: false, error: 'Producto no encontrado.' });
+      return;
+    }
+
+    // Ejecutar transacción atómica de eliminación
+    const deleteTx = db.transaction(() => {
+      db.prepare('DELETE FROM inventory_conflicts WHERE product_id = ?').run(id);
+      db.prepare('DELETE FROM sale_items WHERE product_id = ?').run(id);
+      db.prepare('DELETE FROM products WHERE id = ?').run(id);
+    });
+
+    deleteTx();
+
+    recordAuditLog({
+      userId: req.user!.id,
+      action: 'PRODUCT_DELETE',
+      entityName: 'products',
+      entityId: String(id),
+      details: { code: product.code, name: product.name, authorizedBy: req.user!.username },
+      ipAddress: req.ip,
+      deviceInfo: req.headers['user-agent'],
+    });
+
+    res.json({
+      success: true,
+      message: `Producto '${product.name}' eliminado permanentemente del inventario.`,
+    });
+  } catch (error: any) {
+    console.error('Error al eliminar producto:', error);
+    res.status(500).json({ success: false, error: 'Error al eliminar producto: ' + error.message });
   }
 });

@@ -39,14 +39,15 @@ jobs:
 
       # 4. Compilar el frontend con Vite
       # VITE_API_URL debe configurarse como Secret en GitHub → Settings → Secrets and variables → Actions
-      # Cuando tengas backend desplegado: VITE_API_URL=https://tu-backend.railway.app/api
+      # Formato: https://mevacol-api.onrender.com/api  (la URL exacta de tu servicio en Render)
       - name: 🔨 Build de producción
         run: npm run build
         working-directory: frontend
         env:
+          NODE_ENV: production
           # Base URL para GitHub Pages — el repositorio se llama mevacol-2026
           VITE_BASE_URL: /mevacol-2026/
-          # URL de la API del backend (configurar como Secret cuando tengas backend)
+          # URL de la API del backend en Render.com (configurar como Secret)
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       # 5. Agregar archivo .nojekyll para que GitHub Pages sirva correctamente los assets de Vite

@@ -1,4 +1,4 @@
-name: 🚀 Deploy Backend a Fly.io
+name: 🚀 Deploy Backend a Render.com
 
 on:
   push:
@@ -7,13 +7,13 @@ on:
     paths:
       - 'backend/**'
       - 'Dockerfile'
-      - 'fly.toml'
+      - 'render.yaml'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch: # Permite ejecutar manualmente desde GitHub
 
 jobs:
   deploy:
-    name: Deploy a Fly.io
+    name: Deploy a Render.com
     runs-on: ubuntu-latest
 
     steps:
@@ -21,16 +21,20 @@ jobs:
       - name: 📥 Checkout del repositorio
         uses: actions/checkout@v4
 
-      # 2. Instalar Fly CLI
-      - name: ⚙️ Instalar flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
-      # 3. Desplegar a Fly.io
-      # FLY_API_TOKEN se configura como Secret en GitHub:
-      # GitHub → Settings → Secrets and variables → Actions → New repository secret
-      # Nombre: FLY_API_TOKEN
-      # Valor: el token que obtienes con: fly tokens create deploy
-      - name: 🚀 Deploy a Fly.io
-        run: flyctl deploy --remote-only
+      # 2. Disparar el deploy en Render vía Deploy Hook
+      # RENDER_DEPLOY_HOOK_URL se configura como Secret en GitHub:
+      #   GitHub → Settings → Secrets and variables → Actions → New repository secret
+      #   Nombre: RENDER_DEPLOY_HOOK_URL
+      #   Valor: la URL del Deploy Hook que obtienes en:
+      #     Render Dashboard → tu servicio → Settings → Deploy Hook → Copy
+      - name: 🚀 Disparar deploy en Render.com
+        run: |
+          curl -s --fail-with-body \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
+            | jq '.'
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+      # 3. Esperar y verificar que el deploy fue aceptado
+      - name: ✅ Deploy disparado exitosamente
+        run: echo "Deploy enviado a Render.com — monitorea el progreso en https://dashboard.render.com"

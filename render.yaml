@@ -1,0 +1,48 @@
+# ============================================================
+# render.yaml — Infraestructura como Código para Render.com
+# ============================================================
+# Este archivo define el servicio web de MEVACOL en Render.
+# Render lo detecta automáticamente al conectar el repositorio.
+#
+# Documentación: https://render.com/docs/blueprint-spec
+# ============================================================
+
+services:
+  - type: web
+    name: mevacol-api
+    runtime: docker
+    # Render construirá la imagen desde el Dockerfile en la raíz del repo
+    dockerfilePath: ./Dockerfile
+    # Rama a desplegar
+    branch: main
+    # Plan gratuito (sin cargo)
+    plan: free
+    # Puerto que expone el contenedor (debe coincidir con ENV PORT en el Dockerfile)
+    port: 10000
+    # Health check — Render verifica que el servicio esté vivo
+    healthCheckPath: /api/health
+
+    # ── Variables de entorno ─────────────────────────────────────────────────
+    # Las marcadas como 'sync: false' deben configurarse manualmente en el
+    # Dashboard de Render (Settings → Environment) para mantener los secretos
+    # fuera del repositorio.
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 10000
+
+      # DATABASE_URL: obtener de Neon.tech → tu proyecto → Connection Details
+      # Formato: postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
+      - key: DATABASE_URL
+        sync: false  # Configurar manualmente en Render Dashboard
+
+      # JWT_SECRET: generar con: openssl rand -hex 64
+      - key: JWT_SECRET
+        sync: false  # Configurar manualmente en Render Dashboard
+
+      # CORS_ORIGIN: URL(s) del frontend separadas por coma
+      # Ejemplo: https://tu-usuario.github.io
+      - key: CORS_ORIGIN
+        sync: false  # Configurar manualmente en Render Dashboard

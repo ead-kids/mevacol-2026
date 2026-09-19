@@ -162,8 +162,10 @@ usersRouter.patch('/:id/status', (req: Request, res: Response): void => {
       return;
     }
 
+    const newStatus = (is_active === true || is_active === 1 || is_active === '1') ? 1 : 0;
+
     // No permitir que el administrador se desactive a sí mismo
-    if (user.id === req.user!.id && is_active === 0) {
+    if (user.id === req.user!.id && newStatus === 0) {
       res.status(400).json({
         success: false,
         error: 'No puedes desactivar tu propia cuenta mientras estás en sesión.',
@@ -172,7 +174,7 @@ usersRouter.patch('/:id/status', (req: Request, res: Response): void => {
     }
 
     // No permitir desactivar al último administrador activo
-    if (user.role_code === 'ADMINISTRADOR' && is_active === 0) {
+    if (user.role_code === 'ADMINISTRADOR' && newStatus === 0) {
       const activeAdmins = db.prepare(`
         SELECT COUNT(*) as count FROM users 
         WHERE role_code = 'ADMINISTRADOR' AND is_active = 1
@@ -187,7 +189,6 @@ usersRouter.patch('/:id/status', (req: Request, res: Response): void => {
       }
     }
 
-    const newStatus = is_active ? 1 : 0;
     db.prepare(`
       UPDATE users 
       SET is_active = ?, updated_at = datetime('now')
@@ -265,3 +266,108 @@ usersRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// 6. Eliminar usuario del sistema permanentemente con autorización por contraseña
+usersRouter.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { admin_password } = req.body;
+
+    if (!admin_password) {
+      res.status(400).json({
+        success: false,
+        error: 'Debe ingresar su contraseña de administrador para autorizar la eliminación.',
+      });
+      return;
+    }
+
+    // Validar contraseña del administrador actual
+    const currentAdmin = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user!.id) as any;
+    if (!currentAdmin) {
+      res.status(401).json({ success: false, error: 'Sesión no válida.' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(String(admin_password), currentAdmin.password_hash);
+    if (!passwordValid) {
+      res.status(401).json({
+        success: false,
+        error: 'Contraseña de administrador incorrecta. Autorización denegada.',
+      });
+      return;
+    }
+
+    const user = db.prepare('SELECT id, username, role_code FROM users WHERE id = ?').get(id) as any;
+    if (!user) {
+      res.status(404).json({ success: false, error: 'Usuario no encontrado.' });
+      return;
+    }
+
+    // No permitir eliminarse a sí mismo
+    if (user.id === req.user!.id) {
+      res.status(400).json({
+        success: false,
+        error: 'No puedes eliminar tu propia cuenta mientras estás en sesión.',
+      });
+      return;
+    }
+
+    // No permitir eliminar al último administrador
+    if (user.role_code === 'ADMINISTRADOR') {
+      const adminCount = db.prepare(`
+        SELECT COUNT(*) as count FROM users WHERE role_code = 'ADMINISTRADOR'
+      `).get() as { count: number };
+
+      if (adminCount.count <= 1) {
+        res.status(400).json({
+          success: false,
+          error: 'No es posible eliminar al único Administrador del sistema.',
+        });
+        return;
+      }
+    }
+
+    // Reasignar de forma atómica ventas y registros contables al administrador activo
+    // para mantener intacto el balance financiero y no bloquear la eliminación
+    const deleteTx = db.transaction(() => {
+      db.prepare('UPDATE sales SET seller_user_id = ? WHERE seller_user_id = ?').run(req.user!.id, id);
+      db.prepare('UPDATE invoices SET seller_user_id = ? WHERE seller_user_id = ?').run(req.user!.id, id);
+      db.prepare('UPDATE deliveries SET created_by_user_id = ? WHERE created_by_user_id = ?').run(req.user!.id, id);
+      db.prepare('UPDATE delivery_status_history SET changed_by_user_id = ? WHERE changed_by_user_id = ?').run(req.user!.id, id);
+      db.prepare('UPDATE inventory_conflicts SET seller_user_id = ? WHERE seller_user_id = ?').run(req.user!.id, id);
+      db.prepare('UPDATE inventory_conflicts SET resolved_by_user_id = ? WHERE resolved_by_user_id = ?').run(req.user!.id, id);
+
+      // Desvincular referencias opcionales
+      db.prepare('UPDATE customers SET created_by_user_id = NULL WHERE created_by_user_id = ?').run(id);
+      db.prepare('UPDATE deliveries SET delivery_user_id = NULL WHERE delivery_user_id = ?').run(id);
+      db.prepare('UPDATE orders SET delivery_user_id = NULL WHERE delivery_user_id = ?').run(id);
+      db.prepare('UPDATE audit_logs SET user_id = NULL WHERE user_id = ?').run(id);
+      db.prepare('DELETE FROM seller_locations WHERE user_id = ?').run(id);
+
+      // Eliminar el usuario
+      db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    });
+
+    deleteTx();
+
+    recordAuditLog({
+      userId: req.user!.id,
+      action: 'USER_DELETED',
+      entityName: 'users',
+      entityId: String(id),
+      details: { deletedUsername: user.username, role: user.role_code, authorizedBy: req.user!.username },
+      ipAddress: req.ip,
+      deviceInfo: req.headers['user-agent'],
+    });
+
+    res.json({
+      success: true,
+      message: `Usuario '@${user.username}' eliminado exitosamente del sistema.`,
+    });
+  } catch (error: any) {
+    console.error('Error al eliminar usuario:', error);
+    res.status(500).json({ success: false, error: 'Error al eliminar usuario: ' + error.message });
+  }
+});
+
+

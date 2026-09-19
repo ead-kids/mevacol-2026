@@ -8,6 +8,7 @@ import {
   XCircle,
   CheckCircle,
   Edit2,
+  Trash2,
   Boxes,
   TrendingUp,
   DollarSign,
@@ -16,6 +17,11 @@ import {
   RefreshCw,
   AlertCircle,
   Check,
+  Camera,
+  Lock,
+  Eye,
+  EyeOff,
+  Shield,
 } from 'lucide-react';
 import type { Product, InventoryStats } from '../../types';
 import { api } from '../../services/api';
@@ -36,6 +42,14 @@ export const AdminProducts: React.FC = () => {
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+  // Modal de eliminación segura con contraseña
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Formularios
   const [formData, setFormData] = useState({
     code: '',
@@ -47,6 +61,7 @@ export const AdminProducts: React.FC = () => {
     cost_cop: 0,
     current_stock: 0,
     min_stock: 5,
+    image_url: '',
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -59,6 +74,7 @@ export const AdminProducts: React.FC = () => {
     cost_cop: 0,
     min_stock: 5,
     is_active: 1,
+    image_url: '',
   });
 
   const [stockFormData, setStockFormData] = useState({
@@ -145,6 +161,7 @@ export const AdminProducts: React.FC = () => {
         cost_cop: Number(formData.cost_cop),
         current_stock: Number(formData.current_stock),
         min_stock: Number(formData.min_stock),
+        image_url: formData.image_url.trim() || undefined,
       });
 
       setFeedback({ type: 'success', text: `Producto '${formData.name}' registrado exitosamente.` });
@@ -159,11 +176,70 @@ export const AdminProducts: React.FC = () => {
         cost_cop: 0,
         current_stock: 0,
         min_stock: 5,
+        image_url: '',
       });
       fetchProducts();
       fetchStats();
     } catch (err: any) {
       setFeedback({ type: 'error', text: err.message || 'Error al registrar producto.' });
+    }
+  };
+
+  // Manejo de carga de archivos fotográficos (Base64)
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      setFeedback({ type: 'error', text: 'La imagen seleccionada no debe superar los 3MB.' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (isEdit) {
+        setEditFormData((prev) => ({ ...prev, image_url: base64 }));
+      } else {
+        setFormData((prev) => ({ ...prev, image_url: base64 }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Abrir Modal de Eliminación Segura
+  const openDeleteModal = (product: Product) => {
+    setProductToDelete(product);
+    setDeletePassword('');
+    setShowDeletePassword(false);
+    setDeleteError(null);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Confirmar eliminación de producto con contraseña
+  const handleConfirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productToDelete) return;
+    if (!deletePassword.trim()) {
+      setDeleteError('Ingresa tu contraseña de administrador para continuar.');
+      return;
+    }
+
+    setDeleteError(null);
+    setDeleteLoading(true);
+
+    try {
+      const res = await api.deleteProduct(productToDelete.id, deletePassword);
+      setFeedback({ type: 'success', text: res.message });
+      setIsDeleteModalOpen(false);
+      setProductToDelete(null);
+      setDeletePassword('');
+      await fetchProducts();
+      await fetchStats();
+    } catch (err: any) {
+      setDeleteError(err.message || 'Error al autorizar la eliminación del producto.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -180,6 +256,7 @@ export const AdminProducts: React.FC = () => {
       cost_cop: product.cost_cop || 0,
       min_stock: product.min_stock,
       is_active: product.is_active,
+      image_url: product.image_url || '',
     });
     setIsEditModalOpen(true);
   };
@@ -200,6 +277,7 @@ export const AdminProducts: React.FC = () => {
         cost_cop: Number(editFormData.cost_cop),
         min_stock: Number(editFormData.min_stock),
         is_active: editFormData.is_active,
+        image_url: editFormData.image_url.trim() || null,
       });
 
       setFeedback({ type: 'success', text: 'Producto actualizado exitosamente.' });
@@ -662,26 +740,63 @@ export const AdminProducts: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Producto & Categoría */}
+                      {/* Producto & Categoría con Anexo Fotográfico */}
                       <td style={{ padding: '14px 18px', verticalAlign: 'middle' }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                          {product.name}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
-                          <span style={{
-                            fontSize: '0.72rem',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            color: 'var(--text-secondary)',
-                          }}>
-                            {product.category}
-                          </span>
-                          {product.description && (
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '240px' }}>
-                              {product.description}
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '8px',
+                                objectFit: 'cover',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                background: 'rgba(0, 0, 0, 0.25)',
+                                flexShrink: 0,
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '8px',
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                border: '1px solid rgba(59, 130, 246, 0.25)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#60a5fa',
+                                flexShrink: 0,
+                              }}
+                              title="Sin foto adjunta"
+                            >
+                              <Package size={20} />
+                            </div>
                           )}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                              {product.name}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                              <span style={{
+                                fontSize: '0.72rem',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                color: 'var(--text-secondary)',
+                              }}>
+                                {product.category}
+                              </span>
+                              {product.description && (
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '240px' }}>
+                                  {product.description}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </td>
 
@@ -797,6 +912,25 @@ export const AdminProducts: React.FC = () => {
                           >
                             <Edit2 size={14} />
                             <span>Editar</span>
+                          </button>
+                          <button
+                            onClick={() => openDeleteModal(product)}
+                            className="btn btn-sm"
+                            title="Eliminar producto permanentemente"
+                            style={{
+                              padding: '6px 10px',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.8rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            <span>Eliminar</span>
                           </button>
                         </div>
                       </td>
@@ -946,6 +1080,97 @@ export const AdminProducts: React.FC = () => {
                       className="input-field"
                       style={{ width: '100%' }}
                     />
+                  </div>
+                </div>
+
+                {/* Anexo Fotográfico (Subir foto o URL) */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                    Foto del Producto (Anexo Fotográfico)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    {formData.image_url ? (
+                      <div style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0 }}>
+                        <img
+                          src={formData.image_url}
+                          alt="Vista previa"
+                          style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '8px',
+                            objectFit: 'cover',
+                            border: '2px solid var(--primary)',
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, image_url: '' })}
+                          title="Quitar foto"
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            background: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          width: '64px',
+                          height: '64px',
+                          borderRadius: '8px',
+                          border: '2px dashed var(--border-subtle)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--text-muted)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Camera size={24} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label
+                        className="btn btn-secondary btn-sm"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          width: 'fit-content',
+                        }}
+                      >
+                        <Camera size={14} />
+                        <span>{formData.image_url ? 'Cambiar Foto' : 'Subir Foto'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => handleImageFileChange(e, false)}
+                        />
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="O pega aquí una URL directa de imagen..."
+                        value={formData.image_url}
+                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                        className="input-field"
+                        style={{ width: '100%', fontSize: '0.8rem' }}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1124,9 +1349,100 @@ export const AdminProducts: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Anexo Fotográfico en Edición */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
-                    Descripción o Presentación
+                    Foto del Producto (Anexo Fotográfico)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    {editFormData.image_url ? (
+                      <div style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0 }}>
+                        <img
+                          src={editFormData.image_url}
+                          alt="Foto del producto"
+                          style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '8px',
+                            objectFit: 'cover',
+                            border: '2px solid var(--primary)',
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEditFormData({ ...editFormData, image_url: '' })}
+                          title="Quitar foto"
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            background: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          width: '64px',
+                          height: '64px',
+                          borderRadius: '8px',
+                          border: '2px dashed var(--border-subtle)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--text-muted)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Camera size={24} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label
+                        className="btn btn-secondary btn-sm"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          width: 'fit-content',
+                        }}
+                      >
+                        <Camera size={14} />
+                        <span>{editFormData.image_url ? 'Cambiar Foto' : 'Subir Foto'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => handleImageFileChange(e, true)}
+                        />
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="O pega aquí una URL directa de imagen..."
+                        value={editFormData.image_url}
+                        onChange={(e) => setEditFormData({ ...editFormData, image_url: e.target.value })}
+                        className="input-field"
+                        style={{ width: '100%', fontSize: '0.8rem' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                    Descripción o Indicaciones Farmacéuticas
                   </label>
                   <textarea
                     rows={2}
@@ -1296,6 +1612,152 @@ export const AdminProducts: React.FC = () => {
                 >
                   <Check size={18} />
                   Confirmar Ajuste
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL 4: Confirmación de Seguridad con Contraseña para Eliminar Producto */}
+      {isDeleteModalOpen && productToDelete && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '460px', width: '90%' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid rgba(239, 68, 68, 0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
+                <Shield size={20} />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>Autorizar Eliminación de Producto</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmDelete}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div
+                  style={{
+                    padding: '14px',
+                    borderRadius: '8px',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    fontSize: '0.875rem',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    {productToDelete.image_url ? (
+                      <img
+                        src={productToDelete.image_url}
+                        alt={productToDelete.name}
+                        style={{ width: '42px', height: '42px', borderRadius: '6px', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '6px',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ef4444',
+                        }}
+                      >
+                        <Package size={20} />
+                      </div>
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#f87171' }}>{productToDelete.name}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Ref: {productToDelete.code} &bull; Stock: {productToDelete.current_stock}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    ⚠️ Esta acción es permanente e irreversible. Se eliminará del catálogo farmacéutico e inventario general.
+                  </div>
+                </div>
+
+                {deleteError && (
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid #ef4444',
+                      color: '#fca5a5',
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{deleteError}</span>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Lock size={14} style={{ color: '#ef4444' }} />
+                    <span>Ingresa tu contraseña de Administrador para confirmar:</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showDeletePassword ? 'text' : 'password'}
+                      className="input-field"
+                      placeholder="Tu contraseña de administrador..."
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      autoFocus
+                      required
+                      style={{ width: '100%', paddingRight: '40px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDeletePassword(!showDeletePassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title={showDeletePassword ? 'Ocultar' : 'Mostrar'}
+                    >
+                      {showDeletePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="btn btn-secondary"
+                  disabled={deleteLoading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-danger"
+                  disabled={deleteLoading || !deletePassword.trim()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Trash2 size={16} />
+                  <span>{deleteLoading ? 'Verificando...' : 'Confirmar y Eliminar'}</span>
                 </button>
               </div>
             </form>

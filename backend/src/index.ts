@@ -4,8 +4,8 @@ import { createServer } from './server';
 
 async function bootstrap() {
   try {
-    // 1. Inicializar esquema de Base de Datos relacional
-    initDatabase();
+    // 1. Inicializar esquema de Base de Datos relacional (await obligatorio — PostgreSQL es async)
+    await initDatabase();
 
     // 2. Iniciar servidor Express
     const app = createServer();

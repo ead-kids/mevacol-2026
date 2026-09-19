@@ -70,6 +70,7 @@ export interface Product {
   current_stock: number;
   min_stock: number;
   is_active: number;
+  image_url?: string | null;
   stock_status?: 'DISPONIBLE' | 'STOCK_BAJO' | 'AGOTADO';
   margin_cop?: number;
   margin_percent?: number;

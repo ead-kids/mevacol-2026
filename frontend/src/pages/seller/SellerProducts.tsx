@@ -355,13 +355,47 @@ export const SellerProducts: React.FC<SellerProductsProps> = ({ onBack }) => {
                     )}
                   </div>
 
-                  {/* Fila Central: Nombre y Descripción */}
-                  <div>
-                    <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {product.name}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {product.unit_measure} {product.description ? `— ${product.description}` : ''}
+                  {/* Fila Central: Foto, Nombre y Descripción */}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        style={{
+                          width: '52px',
+                          height: '52px',
+                          borderRadius: '8px',
+                          objectFit: 'cover',
+                          border: '1px solid var(--border-subtle)',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '52px',
+                          height: '52px',
+                          borderRadius: '8px',
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          border: '1px dashed rgba(59, 130, 246, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#60a5fa',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Package size={22} opacity={0.6} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {product.name}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        {product.unit_measure} {product.description ? `— ${product.description}` : ''}
+                      </div>
                     </div>
                   </div>
 
@@ -403,6 +437,44 @@ export const SellerProducts: React.FC<SellerProductsProps> = ({ onBack }) => {
             </div>
 
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Foto de Producto */}
+              {selectedProduct.image_url ? (
+                <div style={{
+                  width: '100%',
+                  maxHeight: '220px',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <img
+                    src={selectedProduct.image_url}
+                    alt={selectedProduct.name}
+                    style={{ width: '100%', maxHeight: '220px', objectFit: 'contain' }}
+                  />
+                </div>
+              ) : (
+                <div style={{
+                  width: '100%',
+                  padding: '20px 16px',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px dashed var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  color: 'var(--text-muted)',
+                }}>
+                  <Package size={28} opacity={0.35} />
+                  <span style={{ fontSize: '0.78rem' }}>Sin foto adjunta</span>
+                </div>
+              )}
+
               <div>
                 <span style={{
                   fontFamily: 'monospace',

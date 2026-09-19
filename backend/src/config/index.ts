@@ -14,11 +14,11 @@ if (!jwtSecret && process.env.NODE_ENV === 'production') {
 
 export const config = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 4000,
-  // En desarrollo se usa un valor local por comodidad. En producción SIEMPRE debe venir del .env
   JWT_SECRET: jwtSecret || 'mevacol_dev_only_secret_change_in_production',
   JWT_EXPIRES_IN: '7d',
-  DB_FILE: process.env.DB_FILE || path.resolve(__dirname, '../../mevacol.db'),
   NODE_ENV: process.env.NODE_ENV || 'development',
-  // Orígenes CORS permitidos (separados por coma en producción, p.ej. "https://app.midominio.com,https://www.midominio.com")
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  // PostgreSQL connection string (Neon.tech en producción, PostgreSQL local en desarrollo)
+  // Formato: postgresql://usuario:contraseña@host:5432/nombre_db
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/mevacol',
 };

@@ -391,10 +391,44 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
                         borderRadius: 'var(--radius-sm)',
                         background: 'rgba(255, 255, 255, 0.03)',
                         border: '1px solid var(--border-subtle)',
+                        gap: '10px',
                       }}
                     >
-                      <div style={{ flex: 1, marginRight: '10px' }}>
-                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>
+                      {p.image_url ? (
+                        <img
+                          src={p.image_url}
+                          alt={p.name}
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '6px',
+                            objectFit: 'cover',
+                            border: '1px solid var(--border-subtle)',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '6px',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            border: '1px dashed rgba(59, 130, 246, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#60a5fa',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Package size={18} opacity={0.6} />
+                        </div>
+                      )}
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {p.name}
                         </div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
@@ -411,6 +445,7 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
                           fontSize: '0.78rem',
                           fontWeight: 700,
                           borderRadius: 'var(--radius-sm)',
+                          flexShrink: 0,
                         }}
                       >
                         {inCartItem ? `+ (${inCartItem.quantity})` : '+ Agregar'}
@@ -465,10 +500,43 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
                         borderRadius: 'var(--radius-sm)',
                         background: 'rgba(255, 255, 255, 0.04)',
                         border: '1px solid var(--border-subtle)',
+                        gap: '10px',
                       }}
                     >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.88rem', fontWeight: 700 }}>{item.product.name}</div>
+                      {item.product.image_url ? (
+                        <img
+                          src={item.product.image_url}
+                          alt={item.product.name}
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '6px',
+                            objectFit: 'cover',
+                            border: '1px solid var(--border-subtle)',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '6px',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            border: '1px dashed rgba(59, 130, 246, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#60a5fa',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Package size={16} opacity={0.6} />
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.product.name}</div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                           {formatCOP(item.product.price_cop)} c/u &bull; Subtotal: <strong style={{ color: '#10b981' }}>{formatCOP(item.quantity * item.product.price_cop)}</strong>
                         </div>

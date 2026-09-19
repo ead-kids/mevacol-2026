@@ -6,11 +6,15 @@ import {
   CheckCircle,
   XCircle,
   Edit2,
+  Trash2,
   Shield,
   ShoppingBag,
   Truck,
   AlertCircle,
   X,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import type { User, RoleCode } from '../../types';
 import { api } from '../../services/api';
@@ -26,6 +30,14 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ users, onRefreshUsers })
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Estados para modal de eliminación segura con contraseña
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -84,6 +96,10 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ users, onRefreshUsers })
   };
 
   const handleToggleStatus = async (user: User) => {
+    if (user.username === 'admin') {
+      setFeedbackMessage({ type: 'error', text: 'La cuenta del Administrador principal no se puede desactivar.' });
+      return;
+    }
     try {
       const newStatus = user.is_active === 1 ? false : true;
       const res = await api.toggleUserStatus(user.id, newStatus);
@@ -91,6 +107,39 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ users, onRefreshUsers })
       await onRefreshUsers();
     } catch (err: any) {
       setFeedbackMessage({ type: 'error', text: err.message || 'Error al cambiar estado.' });
+    }
+  };
+
+  const openDeleteModal = (user: User) => {
+    setUserToDelete(user);
+    setDeletePassword('');
+    setShowDeletePassword(false);
+    setDeleteError(null);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userToDelete) return;
+    if (!deletePassword.trim()) {
+      setDeleteError('Ingresa tu contraseña de administrador para continuar.');
+      return;
+    }
+
+    setDeleteError(null);
+    setDeleteLoading(true);
+
+    try {
+      const res = await api.deleteUser(userToDelete.id, deletePassword);
+      setFeedbackMessage({ type: 'success', text: res.message });
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
+      setDeletePassword('');
+      await onRefreshUsers();
+    } catch (err: any) {
+      setDeleteError(err.message || 'Error al autorizar la eliminación.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -286,13 +335,39 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ users, onRefreshUsers })
 
                       <button
                         onClick={() => handleToggleStatus(u)}
+                        disabled={u.username === 'admin'}
                         className={`btn btn-sm ${u.is_active === 1 ? 'btn-danger' : 'btn-accent'}`}
-                        title={u.is_active === 1 ? 'Desactivar acceso' : 'Activar acceso'}
-                        style={{ padding: '6px 10px' }}
+                        title={u.username === 'admin' ? 'El administrador principal no se puede desactivar' : (u.is_active === 1 ? 'Desactivar acceso' : 'Activar acceso')}
+                        style={{
+                          padding: '6px 10px',
+                          opacity: u.username === 'admin' ? 0.4 : 1,
+                          cursor: u.username === 'admin' ? 'not-allowed' : 'pointer'
+                        }}
                       >
                         {u.is_active === 1 ? <XCircle size={14} /> : <CheckCircle size={14} />}
                         <span>{u.is_active === 1 ? 'Desactivar' : 'Activar'}</span>
                       </button>
+
+                      {u.username !== 'admin' && (
+                        <button
+                          onClick={() => openDeleteModal(u)}
+                          className="btn btn-sm"
+                          title="Eliminar usuario permanentemente"
+                          style={{
+                            padding: '6px 10px',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Trash2 size={14} />
+                          <span>Eliminar</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -487,6 +562,129 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ users, onRefreshUsers })
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={loading}>
                   {loading ? 'Actualizando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirmación de Seguridad con Contraseña para Eliminar Usuario */}
+      {isDeleteModalOpen && userToDelete && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '450px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid rgba(239, 68, 68, 0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
+                <Shield size={20} />
+                <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Autorizar Eliminación</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmDelete}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div
+                  style={{
+                    padding: '14px',
+                    borderRadius: '8px',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    fontSize: '0.875rem',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <div style={{ fontWeight: 600, color: '#f87171', marginBottom: '6px' }}>
+                    ¿Eliminar permanentemente a @{userToDelete.username}?
+                  </div>
+                  <div style={{ color: 'var(--text-primary)' }}>
+                    Nombre: <strong>{userToDelete.full_name}</strong> • Rol: <strong>{userToDelete.role_code}</strong>
+                  </div>
+                  <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    ⚠️ Esta acción no se puede deshacer. Sus ventas y registros históricos se reasignarán a tu cuenta de Administrador para proteger el balance del sistema.
+                  </div>
+                </div>
+
+                {deleteError && (
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid #ef4444',
+                      color: '#fca5a5',
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{deleteError}</span>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Lock size={14} style={{ color: '#ef4444' }} />
+                    <span>Ingresa tu contraseña de Administrador para confirmar:</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showDeletePassword ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Tu contraseña de administrador..."
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      autoFocus
+                      required
+                      style={{ paddingRight: '40px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDeletePassword(!showDeletePassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title={showDeletePassword ? 'Ocultar' : 'Mostrar'}
+                    >
+                      {showDeletePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="btn btn-secondary"
+                  disabled={deleteLoading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-danger"
+                  disabled={deleteLoading || !deletePassword.trim()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Trash2 size={16} />
+                  <span>{deleteLoading ? 'Verificando...' : 'Confirmar y Eliminar'}</span>
                 </button>
               </div>
             </form>
