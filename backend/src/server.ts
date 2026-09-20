@@ -19,16 +19,34 @@ import { errorHandler } from './middlewares/error.middleware';
 export function createServer(): Application {
   const app = express();
 
-  // Parsear orígenes CORS desde la variable de entorno (puede ser '*' o lista separada por comas)
-  const corsOrigins = config.CORS_ORIGIN === '*'
-    ? '*'
+  // Parsear orígenes CORS desde la variable de entorno
+  const customOrigins = config.CORS_ORIGIN === '*'
+    ? ['*']
     : config.CORS_ORIGIN.split(',').map((o) => o.trim());
 
-  // Middlewares estándar de seguridad y parseo
+  // Middlewares estándar de seguridad y parseo con soporte automático para Vercel y GitHub Pages
   app.use(cors({
-    origin: corsOrigins,
+    origin: (origin, callback) => {
+      // Permitir peticiones sin header Origin (apps móviles, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      // Permitir si CORS_ORIGIN es comodín '*'
+      if (customOrigins.includes('*')) return callback(null, true);
+      // Permitir si coincide exactamente con la lista configurada
+      if (customOrigins.includes(origin)) return callback(null, true);
+      // Permitir automáticamente dominios de Vercel, GitHub Pages y desarrollo local
+      if (
+        origin.endsWith('.vercel.app') ||
+        origin.endsWith('.github.io') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1')
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'],
+    credentials: true,
   }));
 
   app.use(express.json({ limit: '10mb' }));
