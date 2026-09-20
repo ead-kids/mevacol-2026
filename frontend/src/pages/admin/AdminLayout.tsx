@@ -96,33 +96,18 @@ export const AdminLayout: React.FC = () => {
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             {/* Indicador de Conexión */}
             <ConnectionStatusBadge />
 
             {/* Perfil del Administrador */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-full)',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid var(--border-subtle)',
-            }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-              }}>
+            <div className="admin-profile-pill" title={user?.full_name || 'Administrador'}>
+              <div className="admin-profile-avatar">
                 <UserIcon size={16} />
               </div>
-              <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>{user?.full_name}</span>
+              <span className="admin-profile-name">
+                {user?.full_name ? user.full_name.split(' ')[0] : 'Admin'}
+              </span>
             </div>
           </div>
         </header>

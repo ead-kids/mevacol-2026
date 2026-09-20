@@ -817,5 +817,73 @@ p {
     padding: 10px 12px !important;
     font-size: 0.82rem !important;
   }
+
+  /* Ocultar texto largo en móviles para que no se deforme la barra */
+  .network-status-text {
+    display: none !important;
+  }
+
+  .network-status-badge {
+    padding: 6px 8px !important;
+    gap: 4px !important;
+  }
+
+  .admin-profile-pill {
+    padding: 2px !important;
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .admin-profile-name {
+    display: none !important;
+  }
+
+  .admin-profile-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    box-shadow: 0 2px 10px rgba(168, 85, 247, 0.45) !important;
+  }
+}
+
+/* ==========================================================================
+   ESTILOS PERFIL DE ADMINISTRADOR
+   ========================================================================== */
+.admin-profile-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.admin-profile-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.admin-profile-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.network-status-text {
+  white-space: nowrap;
 }
 

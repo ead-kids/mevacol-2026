@@ -10,7 +10,7 @@ export const ConnectionStatusBadge: React.FC = () => {
       <div className="network-status-badge online" title="Conexión en tiempo real con el servidor MEVACOL">
         <span className="status-dot online"></span>
         <Wifi size={14} />
-        <span>CONECTADO &bull; Sincronizado</span>
+        <span className="network-status-text">Conectado</span>
       </div>
     );
   }
@@ -22,8 +22,8 @@ export const ConnectionStatusBadge: React.FC = () => {
     >
       <span className="status-dot offline"></span>
       <WifiOff size={14} />
-      <span>
-        SIN INTERNET {pendingCount > 0 ? `(${pendingCount} pendientes)` : ''}
+      <span className="network-status-text">
+        Offline {pendingCount > 0 ? `(${pendingCount})` : ''}
       </span>
     </div>
   );
