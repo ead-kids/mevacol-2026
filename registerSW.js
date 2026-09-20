@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/mevacol-2026/sw.js', { scope: '/mevacol-2026/' })})}
