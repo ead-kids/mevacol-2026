@@ -209,15 +209,10 @@ export const AdminRoutesMap: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid Principal: Mapa a la izquierda / panel de ruta a la derecha */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 380px',
-        gap: '20px',
-        alignItems: 'start',
-      }}>
+      {/* Grid Principal: Mapa y Optimizador (Responsive: columna única en móvil, 2 columnas en PC) */}
+      <div className="admin-routes-grid">
         {/* Contenedor del Mapa */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', minWidth: 0 }}>
           <DeliveryMap
             deliveries={filteredLocations}
             selectedDeliveryId={selectedDelivery?.id}

@@ -887,3 +887,21 @@ p {
   white-space: nowrap;
 }
 
+/* ==========================================================================
+   GRID LOGÍSTICO Y MAPA DE RUTAS (RESPONSIVE)
+   ========================================================================== */
+.admin-routes-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .admin-routes-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+}
+

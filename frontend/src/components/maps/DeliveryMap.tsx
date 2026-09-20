@@ -60,16 +60,32 @@ export const DeliveryMap: React.FC<DeliveryMapProps> = ({
       setTimeout(() => {
         map.invalidateSize();
       }, 250);
-    }
 
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        layerGroupRef.current = null;
-        polylineRef.current = null;
+      // Observar cambios de tamaño del contenedor para reajustar Leaflet automáticamente en móviles
+      let resizeObserver: ResizeObserver | null = null;
+      if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+        resizeObserver = new ResizeObserver(() => {
+          map.invalidateSize();
+        });
+        resizeObserver.observe(mapContainerRef.current);
       }
-    };
+
+      const handleWindowResize = () => {
+        map.invalidateSize();
+      };
+      window.addEventListener('resize', handleWindowResize);
+
+      return () => {
+        if (resizeObserver) resizeObserver.disconnect();
+        window.removeEventListener('resize', handleWindowResize);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+          layerGroupRef.current = null;
+          polylineRef.current = null;
+        }
+      };
+    }
   }, []);
 
   // Actualizar marcadores, rutas y límites cuando cambian los datos
