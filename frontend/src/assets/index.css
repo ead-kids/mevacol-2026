@@ -724,3 +724,98 @@ p {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* ==========================================================================
+   BOTÓN DE MENÚ Y OVERLAY PARA MÓVILES (ADMIN PANEL)
+   ========================================================================== */
+.btn-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  padding: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.btn-menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.admin-topbar-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 998;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* ==========================================================================
+   ADAPTACIÓN RESPONSIVE PARA DISPOSITIVOS MÓVILES Y TELÉFONOS (< 900px)
+   ========================================================================== */
+@media (max-width: 900px) {
+  .btn-menu-toggle {
+    display: flex;
+  }
+
+  .admin-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 290px !important;
+    max-width: 85vw !important;
+    z-index: 1000 !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: none !important;
+  }
+
+  .admin-sidebar.open {
+    transform: translateX(0) !important;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.85) !important;
+  }
+
+  .admin-topbar {
+    height: 60px !important;
+    padding: 0 14px !important;
+    gap: 8px !important;
+  }
+
+  .admin-topbar-title {
+    font-size: 0.95rem !important;
+    max-width: 170px !important;
+  }
+
+  .admin-content {
+    padding: 16px 10px !important;
+  }
+
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin-bottom: 12px !important;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px !important;
+    font-size: 0.82rem !important;
+  }
+}
+

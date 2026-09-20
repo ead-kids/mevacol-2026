@@ -9,17 +9,19 @@ import { AdminInvoices } from './AdminInvoices';
 import { AdminDeliveries } from './AdminDeliveries';
 import { AdminRoutesMap } from './AdminRoutesMap';
 import { AdminReports } from './AdminReports';
+import { AdminSettings } from './AdminSettings';
 import { ConnectionStatusBadge } from '../../components/common/ConnectionStatusBadge';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import type { User } from '../../types';
-import { Info, User as UserIcon } from 'lucide-react';
+import { Info, User as UserIcon, Menu } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
   const { user } = useAuth();
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [users, setUsers] = useState<User[]>([]);
   const [futureModal, setFutureModal] = useState<{ name: string; phase: number } | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const fetchUsers = async () => {
     try {
@@ -40,19 +42,38 @@ export const AdminLayout: React.FC = () => {
 
   return (
     <div className="admin-container">
+      {/* Overlay backdrop en móvil */}
+      {mobileMenuOpen && (
+        <div
+          className="admin-sidebar-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Barra Lateral Navegable */}
       <AdminSidebar
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
         onFutureModuleClick={handleFutureModuleClick}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
       />
 
       {/* Área Principal de Contenido */}
       <div className="admin-main">
         {/* Barra Superior Fija */}
         <header className="admin-topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+            {/* Botón Hamburguesa Móvil */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="btn-menu-toggle"
+              aria-label="Abrir menú"
+            >
+              <Menu size={22} />
+            </button>
+
+            <h1 className="admin-topbar-title">
               {currentTab === 'dashboard'
                 ? 'Panel de Control Maestro'
                 : currentTab === 'customers'
@@ -69,6 +90,8 @@ export const AdminLayout: React.FC = () => {
                 ? 'Mapa Logístico, Rutas & GPS'
                 : currentTab === 'reports'
                 ? 'Reportes y Análisis'
+                : currentTab === 'settings'
+                ? 'Configuración del Sistema'
                 : 'Administración de Usuarios'}
             </h1>
           </div>
@@ -125,6 +148,8 @@ export const AdminLayout: React.FC = () => {
             <AdminRoutesMap />
           ) : currentTab === 'reports' ? (
             <AdminReports />
+          ) : currentTab === 'settings' ? (
+            <AdminSettings />
           ) : (
             <AdminUsers users={users} onRefreshUsers={fetchUsers} />
           )}

@@ -16,6 +16,7 @@ import {
   Navigation,
   Settings,
   LogOut,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { MEVACOL_LOGO } from '../../assets/logo';
@@ -24,12 +25,16 @@ interface AdminSidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
   onFutureModuleClick: (moduleName: string, phase: number) => void;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   currentTab,
   onSelectTab,
   onFutureModuleClick,
+  mobileOpen = false,
+  onCloseMobile,
 }) => {
   const { user, logout } = useAuth();
 
@@ -66,40 +71,64 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       title: 'Control & Auditoría',
       items: [
         { id: 'reports', name: 'Reportes y Análisis', icon: BarChart3, active: true, phase: 8 },
-        { id: 'settings', name: 'Configuración', icon: Settings, active: false, phase: 4 },
+        { id: 'settings', name: 'Configuración', icon: Settings, active: true, phase: 1 },
       ],
     },
   ];
 
   return (
-    <aside className="admin-sidebar">
+    <aside className={`admin-sidebar ${mobileOpen ? 'open' : ''}`}>
       {/* Brand Header */}
-      <div className="sidebar-header" style={{ gap: '14px' }}>
-        <div style={{
-          background: '#ffffff',
-          borderRadius: '10px',
-          padding: '4px 6px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)',
-          flexShrink: 0,
-        }}>
-          <img
-            src={MEVACOL_LOGO}
-            alt="MEVACOL"
+      <div className="sidebar-header" style={{ gap: '14px', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            padding: '4px 6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)',
+            flexShrink: 0,
+          }}>
+            <img
+              src={MEVACOL_LOGO}
+              alt="MEVACOL"
+              style={{
+                height: '42px',
+                width: 'auto',
+                display: 'block',
+                objectFit: 'contain',
+              }}
+            />
+          </div>
+          <div>
+            <div className="sidebar-brand-title" style={{ fontSize: '1.15rem' }}>MEVACOL</div>
+            <div className="sidebar-brand-sub">Distribuciones</div>
+          </div>
+        </div>
+
+        {/* Botón Cerrar en Móviles */}
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="mobile-close-btn"
+            aria-label="Cerrar menú"
             style={{
-              height: '42px',
-              width: 'auto',
-              display: 'block',
-              objectFit: 'contain',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              borderRadius: '8px',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-          />
-        </div>
-        <div>
-          <div className="sidebar-brand-title" style={{ fontSize: '1.15rem' }}>MEVACOL</div>
-          <div className="sidebar-brand-sub">Distribuciones</div>
-        </div>
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       {/* Navigation Groups */}
@@ -118,6 +147,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   onClick={() => {
                     if (item.active) {
                       onSelectTab(item.id);
+                      if (onCloseMobile) onCloseMobile();
                     } else {
                       onFutureModuleClick(item.name, item.phase);
                     }

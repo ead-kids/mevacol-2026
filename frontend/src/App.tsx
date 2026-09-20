@@ -6,7 +6,7 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { SellerHome } from './pages/seller/SellerHome';
 import { DeliveryHome } from './pages/delivery/DeliveryHome';
-import { ShoppingBag, Truck, Smartphone, Monitor } from 'lucide-react';
+import { Truck, Smartphone, Monitor, Eye, X } from 'lucide-react';
 import { MEVACOL_LOGO } from './assets/logo';
 import './assets/index.css';
 
@@ -14,6 +14,7 @@ const AppContent: React.FC = () => {
   const { user, isBootstrapped, isLoading } = useAuth();
   // Permite al Administrador previsualizar la experiencia de Vendedor o Entregador
   const [previewRoleOverride, setPreviewRoleOverride] = useState<string | null>(null);
+  const [showPreviewBar, setShowPreviewBar] = useState(true);
 
   // 1. Pantalla de Carga Inicial
   if (isLoading) {
@@ -69,11 +70,11 @@ const AppContent: React.FC = () => {
   return (
     <>
       {/* Barra de Previsualización para el Administrador */}
-      {user.role_code === 'ADMINISTRADOR' && (
-        <div style={{
+      {user.role_code === 'ADMINISTRADOR' && showPreviewBar && (
+        <div className="admin-preview-bar" style={{
           background: 'linear-gradient(90deg, #1e1b4b 0%, #0f172a 100%)',
           borderBottom: '1px solid rgba(168, 85, 247, 0.3)',
-          padding: '6px 16px',
+          padding: '6px 14px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -86,41 +87,84 @@ const AppContent: React.FC = () => {
           top: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 700, color: '#c084fc' }}>MODO ADMINISTRADOR:</span>
-            <span>Previsualizar vistas adaptativas según dispositivo y rol:</span>
+            <span style={{ fontWeight: 700, color: '#c084fc' }}>MODO ADMIN:</span>
+            <span className="hidden-mobile" style={{ fontSize: '0.75rem' }}>Previsualizar roles:</span>
           </div>
 
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button
               onClick={() => setPreviewRoleOverride(null)}
               className={`btn btn-sm ${!previewRoleOverride ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '3px 10px', fontSize: '0.75rem' }}
+              style={{ padding: '3px 8px', fontSize: '0.73rem' }}
             >
               <Monitor size={12} />
-              <span>Escritorio (Admin)</span>
+              <span>Admin</span>
             </button>
 
             <button
               onClick={() => setPreviewRoleOverride('VENDEDOR')}
               className={`btn btn-sm ${previewRoleOverride === 'VENDEDOR' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '3px 10px', fontSize: '0.75rem' }}
+              style={{ padding: '3px 8px', fontSize: '0.73rem' }}
             >
               <Smartphone size={12} />
-              <ShoppingBag size={12} />
-              <span>Móvil Vendedor</span>
+              <span>Vendedor</span>
             </button>
 
             <button
               onClick={() => setPreviewRoleOverride('ENTREGADOR')}
               className={`btn btn-sm ${previewRoleOverride === 'ENTREGADOR' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '3px 10px', fontSize: '0.75rem' }}
+              style={{ padding: '3px 8px', fontSize: '0.73rem' }}
             >
-              <Smartphone size={12} />
               <Truck size={12} />
-              <span>Móvil Entregador</span>
+              <span>Entregador</span>
+            </button>
+
+            <button
+              onClick={() => setShowPreviewBar(false)}
+              title="Ocultar barra de previsualización"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#a855f7',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                marginLeft: '4px',
+              }}
+            >
+              <X size={15} />
             </button>
           </div>
         </div>
+      )}
+
+      {/* Botón flotante para restaurar la barra si fue minimizada */}
+      {user.role_code === 'ADMINISTRADOR' && !showPreviewBar && (
+        <button
+          onClick={() => setShowPreviewBar(true)}
+          style={{
+            position: 'fixed',
+            bottom: '16px',
+            right: '16px',
+            zIndex: 999,
+            background: 'rgba(30, 27, 75, 0.95)',
+            border: '1px solid rgba(168, 85, 247, 0.4)',
+            borderRadius: 'var(--radius-full)',
+            color: '#c084fc',
+            padding: '6px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.5)',
+          }}
+        >
+          <Eye size={13} />
+          <span>Roles</span>
+        </button>
       )}
 
       {/* Renderizado de la Interfaz según Rol Efectivo */}
