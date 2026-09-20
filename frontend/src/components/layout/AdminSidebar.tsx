@@ -18,6 +18,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { MEVACOL_LOGO } from '../../assets/logo';
 
 interface AdminSidebarProps {
   currentTab: string;
@@ -85,7 +86,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           flexShrink: 0,
         }}>
           <img
-            src="/logo.png"
+            src={MEVACOL_LOGO}
             alt="MEVACOL"
             style={{
               height: '42px',

@@ -7,6 +7,7 @@ import { AdminLayout } from './pages/admin/AdminLayout';
 import { SellerHome } from './pages/seller/SellerHome';
 import { DeliveryHome } from './pages/delivery/DeliveryHome';
 import { ShoppingBag, Truck, Smartphone, Monitor } from 'lucide-react';
+import { MEVACOL_LOGO } from './assets/logo';
 import './assets/index.css';
 
 const AppContent: React.FC = () => {
@@ -33,7 +34,7 @@ const AppContent: React.FC = () => {
           boxShadow: '0 0 35px rgba(59, 130, 246, 0.35), 0 8px 24px rgba(0, 0, 0, 0.5)',
         }}>
           <img
-            src="/logo.png"
+            src={MEVACOL_LOGO}
             alt="MEVACOL Distribuciones"
             style={{
               height: '85px',

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ConnectionStatusBadge } from '../../components/common/ConnectionStatusBadge';
+import { MEVACOL_LOGO } from '../../assets/logo';
 import { DeliveryCustomers } from './DeliveryCustomers';
 import { DeliveryMap } from '../../components/maps/DeliveryMap';
 import { LocationPermissionModal } from '../../components/maps/LocationPermissionModal';
@@ -458,7 +459,7 @@ export const DeliveryHome: React.FC = () => {
             flexShrink: 0,
           }}>
             <img
-              src="/logo.png"
+              src={MEVACOL_LOGO}
               alt="MEVACOL"
               style={{
                 height: '34px',

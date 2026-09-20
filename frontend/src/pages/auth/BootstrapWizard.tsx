@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { MEVACOL_LOGO } from '../../assets/logo';
 
 export const BootstrapWizard: React.FC = () => {
   const { bootstrapAdmin, isLoading, error } = useAuth();
@@ -74,7 +75,7 @@ export const BootstrapWizard: React.FC = () => {
             marginBottom: '16px',
           }}>
             <img
-              src="/logo.png"
+              src={MEVACOL_LOGO}
               alt="MEVACOL Distribuciones"
               style={{
                 height: '105px',

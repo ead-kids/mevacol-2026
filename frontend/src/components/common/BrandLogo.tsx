@@ -1,4 +1,5 @@
 import React from 'react';
+import { MEVACOL_LOGO } from '../../assets/logo';
 
 interface BrandLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -34,7 +35,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       }}
     >
       <img
-        src="/logo.png"
+        src={MEVACOL_LOGO}
         alt="MEVACOL Distribuciones"
         style={{
           height: selected.height,

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff, LogIn, AlertCircle, Shield, ShoppingBag, Truck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ConnectionStatusBadge } from '../../components/common/ConnectionStatusBadge';
+import { MEVACOL_LOGO } from '../../assets/logo';
 
 export const LoginPage: React.FC = () => {
   const { login, isLoading, error } = useAuth();
@@ -54,7 +55,7 @@ export const LoginPage: React.FC = () => {
             marginBottom: '14px',
           }}>
             <img
-              src="/logo.png"
+              src={MEVACOL_LOGO}
               alt="MEVACOL Distribuciones"
               style={{
                 height: '115px',

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Invoice } from '../../types';
 import { formatCOP } from '../../utils/numberToWords';
+import { MEVACOL_LOGO } from '../../assets/logo';
 
 interface InvoiceDocumentProps {
   invoice: Invoice;
@@ -25,7 +26,7 @@ export const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
     mobile: '+57 312 890 4567',
     email: 'facturacion@mevacol.com.co',
     website: 'www.mevacol.com.co',
-    logo_url: '/logo.png',
+    logo_url: MEVACOL_LOGO,
     regime: 'Régimen Común - Facturación Comercial MEVACOL',
     dian_resolution: 'Resolución DIAN No. 18764000123456 de 2026-01-15',
     dian_range: 'Prefijo FAC del 0001 al 10000 Vigencia: 24 meses',
@@ -212,7 +213,7 @@ export const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
         <div style={{ textAlign: 'center' }}>
           {/* Logo centrado en la parte superior (width: 90px; height: auto; margin: 0 auto; display: block;) */}
           <img
-            src={company.logo_url || '/logo.png'}
+            src={company.logo_url || MEVACOL_LOGO}
             alt="Logo MEVACOL"
             style={{
               width: '90px',

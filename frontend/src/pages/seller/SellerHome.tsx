@@ -16,6 +16,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
 import { ConnectionStatusBadge } from '../../components/common/ConnectionStatusBadge';
+import { MEVACOL_LOGO } from '../../assets/logo';
 import { SellerCustomers } from './SellerCustomers';
 import { SellerProducts } from './SellerProducts';
 import { SellerSales } from './SellerSales';
@@ -108,7 +109,7 @@ export const SellerHome: React.FC = () => {
             flexShrink: 0,
           }}>
             <img
-              src="/logo.png"
+              src={MEVACOL_LOGO}
               alt="MEVACOL"
               style={{
                 height: '34px',
