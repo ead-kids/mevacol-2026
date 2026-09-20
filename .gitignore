@@ -10,3 +10,4 @@ backend/*.db-journal
 .env
 */.env
 *.env.local
+mevacol-2026/

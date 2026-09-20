@@ -47,8 +47,8 @@ jobs:
           NODE_ENV: production
           # Base URL para GitHub Pages — el repositorio se llama mevacol-2026
           VITE_BASE_URL: /mevacol-2026/
-          # URL de la API del backend en Render.com (configurar como Secret)
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          # URL de la API del backend en Render.com (secreto opcional con fallback directo)
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://mevacol-2026.onrender.com/api' }}
 
       # 5. Agregar archivo .nojekyll para que GitHub Pages sirva correctamente los assets de Vite
       - name: 📄 Crear .nojekyll
