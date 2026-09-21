@@ -31,21 +31,27 @@ import type {
 } from '../types';
 
 // Configuración robusta de API_BASE:
-// 1. Si existe VITE_API_URL configurado explícitamente, úsalo.
+// 1. Si existe VITE_API_URL configurado explícitamente, úsalo asegurando el sufijo /api.
 // 2. Si se ejecuta en la nube en Vercel (*.vercel.app) o GitHub Pages, enlaza automáticamente con el backend activo en Render.
 // 3. En entorno local usa el proxy '/api'.
 const getApiBase = (): string => {
-  const envUrl = (import.meta as any).env?.VITE_API_URL;
-  if (envUrl && typeof envUrl === 'string' && envUrl.startsWith('http')) {
-    return envUrl;
-  }
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host.includes('vercel.app') || host.includes('github.io')) {
-      return 'https://mevacol-2026.onrender.com/api';
+  let url = (import.meta as any).env?.VITE_API_URL;
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname;
+      if (host.includes('vercel.app') || host.includes('github.io')) {
+        url = 'https://mevacol-2026.onrender.com/api';
+      }
     }
   }
-  return envUrl || '/api';
+  if (!url) {
+    url = '/api';
+  }
+  url = url.trim().replace(/\/+$/, '');
+  if (url.startsWith('http') && !url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  return url;
 };
 
 const API_BASE: string = getApiBase();
@@ -84,8 +90,11 @@ class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${API_BASE}${cleanEndpoint}`;
+
     try {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
+      const response = await fetch(url, {
         ...options,
         headers,
       });
@@ -95,11 +104,11 @@ class ApiService {
       if (contentType.includes('application/json')) {
         data = await response.json();
       } else {
-        const text = await response.text();
+        await response.text();
         if (!response.ok) {
-          throw new Error(`Error en servidor (${response.status}): ${text.slice(0, 100)}`);
+          throw new Error(`Error temporal de conexión (${response.status}). Pulsa reintentar.`);
         }
-        throw new Error('Respuesta inválida del servidor (esperado JSON).');
+        throw new Error('Respuesta inválida del servidor. Pulsa reintentar.');
       }
 
       if (!response.ok) {

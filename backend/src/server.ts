@@ -54,38 +54,52 @@ export function createServer(): Application {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  // Ruta base de diagnóstico
-  app.get('/api/health', (req, res) => {
-    res.json({
-      status: 'online',
-      system: 'MEVACOL API',
-      timestamp: new Date().toISOString(),
+  // Enrutamiento modular de la API (con soporte dual /api y prefijo raíz para máxima compatibilidad)
+  const mountRoutes = (prefix: string) => {
+    app.get(`${prefix}/health`, (req, res) => {
+      res.json({
+        status: 'online',
+        system: 'MEVACOL API',
+        timestamp: new Date().toISOString(),
+      });
     });
-  });
+    app.use(`${prefix}/system`, systemRouter);
+    app.use(`${prefix}/auth`, authRouter);
+    app.use(`${prefix}/users`, usersRouter);
+    app.use(`${prefix}/customers`, customersRouter);
+    app.use(`${prefix}/products`, productsRouter);
+    app.use(`${prefix}/sales`, salesRouter);
+    app.use(`${prefix}/invoices`, invoicesRouter);
+    app.use(`${prefix}/deliveries`, deliveriesRouter);
+    app.use(`${prefix}/geo`, geoRouter);
+    app.use(`${prefix}/dashboard`, dashboardRouter);
+    app.use(`${prefix}/reports`, reportsRouter);
+    app.use(`${prefix}/sellers`, sellersRouter);
+    app.use(`${prefix}/campaigns`, campaignsRouter);
+  };
 
-  // Enrutamiento modular de la API
-  app.use('/api/system', systemRouter);
-  app.use('/api/auth', authRouter);
-  app.use('/api/users', usersRouter);
-  app.use('/api/customers', customersRouter);
-  app.use('/api/products', productsRouter);
-  app.use('/api/sales', salesRouter);
-  app.use('/api/invoices', invoicesRouter);
-  app.use('/api/deliveries', deliveriesRouter);
-  app.use('/api/geo', geoRouter);
-  app.use('/api/dashboard', dashboardRouter);
-  app.use('/api/reports', reportsRouter);
-  app.use('/api/sellers', sellersRouter);
-  app.use('/api/campaigns', campaignsRouter);
+  mountRoutes('/api');
+  mountRoutes('');
 
-  // Servir frontend PWA en producción si existe la compilación (dist)
+  // Servir frontend PWA en producción si existe la compilación local (dist)
   const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
   if (fs.existsSync(frontendDistPath)) {
     app.use(express.static(frontendDistPath));
-    app.use((req, res) => {
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/sellers') || req.path.startsWith('/system') || req.path.startsWith('/auth')) {
+        return next();
+      }
       res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
   }
+
+  // Manejador centralizado 404 (siempre en formato JSON, nunca HTML crudo)
+  app.use((req, res) => {
+    res.status(404).json({
+      success: false,
+      error: `Ruta no encontrada en el servidor: ${req.method} ${req.originalUrl}`,
+    });
+  });
 
   // Manejador centralizado de errores
   app.use(errorHandler);
