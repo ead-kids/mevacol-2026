@@ -167,21 +167,21 @@ export const SellerHome: React.FC = () => {
         <SellerGpsTracker />
 
         {/* KPI Cards: Ventas del día/semana/mes */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-          <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+        <div className="mobile-kpi-grid">
+          <div className="glass-card" style={{ padding: '10px 8px', textAlign: 'center', minWidth: 0 }}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Hoy</div>
-            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#34d399' }}>{formatCOP(sellerStats?.sales.today_revenue_cop || 0)}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{sellerStats?.sales.today_count || 0} ventas</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#34d399', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCOP(sellerStats?.sales.today_revenue_cop || 0)}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{sellerStats?.sales.today_count || 0} ventas</div>
           </div>
-          <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+          <div className="glass-card" style={{ padding: '10px 8px', textAlign: 'center', minWidth: 0 }}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Semana</div>
-            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#60a5fa' }}>{formatCOP(sellerStats?.sales.week_revenue_cop || 0)}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{sellerStats?.sales.week_count || 0} ventas</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#60a5fa', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCOP(sellerStats?.sales.week_revenue_cop || 0)}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{sellerStats?.sales.week_count || 0} ventas</div>
           </div>
-          <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+          <div className="glass-card" style={{ padding: '10px 8px', textAlign: 'center', minWidth: 0 }}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Mes</div>
-            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#c084fc' }}>{formatCOP(sellerStats?.sales.month_revenue_cop || 0)}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{sellerStats?.sales.month_count || 0} ventas</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#c084fc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCOP(sellerStats?.sales.month_revenue_cop || 0)}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{sellerStats?.sales.month_count || 0} ventas</div>
           </div>
         </div>
 
@@ -211,21 +211,21 @@ export const SellerHome: React.FC = () => {
         )}
 
         {/* Resumen adicional: clientes, facturas, entregas */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-          <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+        <div className="mobile-kpi-grid">
+          <div className="glass-card" style={{ padding: '10px 8px', textAlign: 'center', minWidth: 0 }}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Clientes</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#34d399' }}>{formatNum(sellerStats?.customers.unique_customers || 0)}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>atendidos</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#34d399' }}>{formatNum(sellerStats?.customers.unique_customers || 0)}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>atendidos</div>
           </div>
-          <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+          <div className="glass-card" style={{ padding: '10px 8px', textAlign: 'center', minWidth: 0 }}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Facturas</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#60a5fa' }}>{formatNum(sellerStats?.invoices.total || 0)}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>generadas</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#60a5fa' }}>{formatNum(sellerStats?.invoices.total || 0)}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>generadas</div>
           </div>
-          <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+          <div className="glass-card" style={{ padding: '10px 8px', textAlign: 'center', minWidth: 0 }}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Entregas</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#fbbf24' }}>{formatNum(sellerStats?.deliveries.total || 0)}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{sellerStats?.deliveries.pending || 0} pendientes</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fbbf24' }}>{formatNum(sellerStats?.deliveries.total || 0)}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{sellerStats?.deliveries.pending || 0} pendientes</div>
           </div>
         </div>
 

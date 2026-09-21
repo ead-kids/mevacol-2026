@@ -157,72 +157,78 @@ export const SellerGpsTracker: React.FC = () => {
   return (
     <div
       style={{
-        background: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        background: 'rgba(30, 41, 59, 0.7)',
+        border: permissionDenied
+          ? '1px solid rgba(239, 68, 68, 0.3)'
+          : errorMessage
+          ? '1px solid rgba(245, 158, 11, 0.3)'
+          : lastPing
+          ? '1px solid rgba(16, 185, 129, 0.25)'
+          : '1px solid rgba(255, 255, 255, 0.1)',
         borderRadius: '14px',
         padding: '12px 14px',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '10px',
-        marginTop: '6px',
-        marginBottom: '6px',
+        flexDirection: 'column',
+        gap: '8px',
+        boxSizing: 'border-box',
+        width: '100%',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-        <div
-          onClick={isSharing ? requestLocation : undefined}
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: !isSharing
-              ? 'rgba(245, 158, 11, 0.15)'
-              : permissionDenied
-              ? 'rgba(239, 68, 68, 0.15)'
-              : lastPing
-              ? 'rgba(16, 185, 129, 0.15)'
-              : 'rgba(59, 130, 246, 0.15)',
-            color: !isSharing
-              ? '#fbbf24'
-              : permissionDenied
-              ? '#f87171'
-              : lastPing
-              ? '#34d399'
-              : '#60a5fa',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            cursor: isSharing ? 'pointer' : 'default',
-          }}
-          title={isSharing ? 'Toca para forzar actualización GPS' : ''}
-        >
-          {!isSharing ? (
-            <Pause size={18} />
-          ) : permissionDenied ? (
-            <AlertCircle size={18} />
-          ) : isLocating ? (
-            <RefreshCw size={18} className="animate-spin" />
-          ) : (
-            <Radio size={18} style={{ animation: lastPing ? 'pulse 2s infinite' : 'none' }} />
-          )}
-        </div>
+      {/* Fila Superior: Título, Badge y Acciones */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+          <div
+            onClick={isSharing ? requestLocation : undefined}
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: !isSharing
+                ? 'rgba(245, 158, 11, 0.15)'
+                : permissionDenied
+                ? 'rgba(239, 68, 68, 0.15)'
+                : lastPing
+                ? 'rgba(16, 185, 129, 0.15)'
+                : 'rgba(59, 130, 246, 0.15)',
+              color: !isSharing
+                ? '#fbbf24'
+                : permissionDenied
+                ? '#f87171'
+                : lastPing
+                ? '#34d399'
+                : '#60a5fa',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              cursor: isSharing ? 'pointer' : 'default',
+            }}
+            title={isSharing ? 'Toca para forzar actualización GPS' : ''}
+          >
+            {!isSharing ? (
+              <Pause size={17} />
+            ) : permissionDenied ? (
+              <AlertCircle size={17} />
+            ) : isLocating ? (
+              <RefreshCw size={17} className="animate-spin" />
+            ) : (
+              <Radio size={17} style={{ animation: lastPing ? 'pulse 2s infinite' : 'none' }} />
+            )}
+          </div>
 
-        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff' }}>
+            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>
               {!isSharing
                 ? 'GPS en Pausa'
                 : permissionDenied
-                ? 'Permiso de GPS Requerido'
+                ? 'Permiso de GPS'
                 : 'Ubicación en Vivo'}
             </span>
             <span
               style={{
                 fontSize: '0.65rem',
                 fontWeight: 700,
-                padding: '2px 6px',
+                padding: '2px 7px',
                 borderRadius: '9999px',
                 background: !isSharing
                   ? 'rgba(148, 163, 184, 0.2)'
@@ -239,101 +245,148 @@ export const SellerGpsTracker: React.FC = () => {
               {!isSharing ? 'Pausado' : permissionDenied ? 'Atención' : 'Activo'}
             </span>
           </div>
-
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {!isSharing ? (
-              'Transmisión detenida por el vendedor'
-            ) : permissionDenied ? (
-              'Toca "Activar GPS" para conceder acceso'
-            ) : lastPing ? (
-              <span style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <CheckCircle2 size={12} />
-                Ping: {lastPing.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                {lastAccuracy !== null ? ` (±${lastAccuracy}m)` : ''}
-              </span>
-            ) : isLocating ? (
-              <span style={{ color: '#60a5fa' }}>Buscando coordenadas satelitales...</span>
-            ) : (
-              errorMessage || 'Iniciando transmisión de jornada...'
-            )}
-          </div>
         </div>
-      </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-        {permissionDenied && (
+        {/* Botones de Acción */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {isSharing && !permissionDenied && (
+            <button
+              onClick={requestLocation}
+              disabled={isLocating}
+              title="Transmitir posición ahora"
+              style={{
+                padding: '6px 8px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#cbd5e1',
+              }}
+            >
+              <RefreshCw size={13} className={isLocating ? 'animate-spin' : ''} />
+            </button>
+          )}
+
           <button
-            onClick={handleRequestPermission}
+            onClick={toggleSharing}
             style={{
               padding: '6px 10px',
               borderRadius: '8px',
               fontSize: '0.75rem',
-              fontWeight: 700,
+              fontWeight: 600,
               display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer',
+              border: 'none',
+              background: isSharing ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.2)',
+              color: isSharing ? '#fca5a5' : '#93c5fd',
+              transition: 'all 0.2s',
+            }}
+          >
+            {isSharing ? (
+              <>
+                <Pause size={13} />
+                Pausar
+              </>
+            ) : (
+              <>
+                <Play size={13} />
+                Reanudar
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Fila Inferior: Detalle de Estado e Indicadores Claros */}
+      <div
+        style={{
+          fontSize: '0.74rem',
+          color: '#94a3b8',
+          lineHeight: '1.3',
+          padding: '6px 10px',
+          borderRadius: '8px',
+          background: 'rgba(0, 0, 0, 0.25)',
+          wordBreak: 'break-word',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+        }}
+      >
+        <div style={{ flex: 1 }}>
+          {!isSharing ? (
+            <span style={{ color: '#94a3b8' }}>Transmisión detenida por el vendedor</span>
+          ) : permissionDenied ? (
+            <span style={{ color: '#fca5a5' }}>
+              Acceso a ubicación bloqueado. Autoriza en ajustes de Safari/Chrome.
+            </span>
+          ) : errorMessage ? (
+            <span style={{ color: '#fca5a5' }}>{errorMessage}</span>
+          ) : lastPing ? (
+            <span style={{ color: '#34d399', display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+              <CheckCircle2 size={13} style={{ flexShrink: 0 }} />
+              <span>
+                Transmitiendo · Ping: {lastPing.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {lastAccuracy !== null ? ` (±${lastAccuracy}m)` : ''}
+              </span>
+            </span>
+          ) : isLocating ? (
+            <span style={{ color: '#60a5fa' }}>Adquiriendo coordenadas satelitales GPS...</span>
+          ) : (
+            'Iniciando transmisión de jornada...'
+          )}
+        </div>
+
+        {permissionDenied && (
+          <button
+            onClick={handleRequestPermission}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '6px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '4px',
               cursor: 'pointer',
               border: 'none',
               background: '#2563eb',
               color: '#ffffff',
+              flexShrink: 0,
             }}
           >
-            <Navigation size={12} />
-            Activar GPS
+            <Navigation size={11} />
+            Activar
           </button>
         )}
 
-        {isSharing && !permissionDenied && (
+        {errorMessage && isSharing && !permissionDenied && (
           <button
             onClick={requestLocation}
-            disabled={isLocating}
-            title="Transmitir posición ahora"
             style={{
-              padding: '6px 8px',
-              borderRadius: '8px',
-              fontSize: '0.75rem',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              fontSize: '0.72rem',
               fontWeight: 600,
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
+              gap: '4px',
               cursor: 'pointer',
               border: 'none',
-              background: 'rgba(255, 255, 255, 0.08)',
-              color: '#cbd5e1',
+              background: 'rgba(239, 68, 68, 0.2)',
+              color: '#fca5a5',
+              flexShrink: 0,
             }}
           >
-            <RefreshCw size={13} className={isLocating ? 'animate-spin' : ''} />
+            Reintentar
           </button>
         )}
-
-        <button
-          onClick={toggleSharing}
-          style={{
-            padding: '6px 12px',
-            borderRadius: '8px',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            border: 'none',
-            background: isSharing ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.2)',
-            color: isSharing ? '#fca5a5' : '#93c5fd',
-            transition: 'all 0.2s',
-          }}
-        >
-          {isSharing ? (
-            <>
-              <Pause size={13} />
-              Pausar
-            </>
-          ) : (
-            <>
-              <Play size={13} />
-              Reanudar
-            </>
-          )}
-        </button>
       </div>
     </div>
   );

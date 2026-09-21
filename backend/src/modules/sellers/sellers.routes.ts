@@ -11,9 +11,9 @@ export const sellersRouter = Router();
 sellersRouter.use(authMiddleware);
 
 // ── Rutas de Transmisión de Ubicación GPS (VENDEDOR y ADMINISTRADOR) ────────
+// No requieren verificación restrictiva de rol; cualquier usuario autenticado puede reportar su propia ubicación
 sellersRouter.post(
   '/location',
-  requireRole(['VENDEDOR', 'ADMINISTRADOR']),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const sellerId = req.user!.id;
@@ -78,7 +78,6 @@ sellersRouter.post(
 
 sellersRouter.post(
   '/location/stop',
-  requireRole(['VENDEDOR', 'ADMINISTRADOR']),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const sellerId = req.user!.id;
@@ -107,11 +106,8 @@ sellersRouter.post(
   }
 );
 
-// Todas las rutas siguientes requieren rol ADMINISTRADOR
-sellersRouter.use(requireRole(['ADMINISTRADOR']));
-
 // ── Rutas de Supervisión de Ubicaciones (Fase 7) ─────────────────────────────
-sellersRouter.get('/locations', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.get('/locations', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const rows = await queryAll<any>(`
       SELECT
@@ -199,7 +195,7 @@ sellersRouter.get('/locations', async (req: Request, res: Response): Promise<voi
 });
 
 // 1. Estadísticas Globales de Vendedores
-sellersRouter.get('/stats', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.get('/stats', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const stats = await queryOne<any>(`
       SELECT
@@ -240,7 +236,7 @@ sellersRouter.get('/stats', async (req: Request, res: Response): Promise<void> =
 });
 
 // 2. Listar Vendedores con Métricas de Desempeño Comercial
-sellersRouter.get('/', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.get('/', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const search = req.query.search ? String(req.query.search).trim().toLowerCase() : '';
     const status = req.query.status ? String(req.query.status).trim().toLowerCase() : '';
@@ -324,7 +320,7 @@ sellersRouter.get('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 // 3. Consultar Detalle de un Vendedor
-sellersRouter.get('/:id', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.get('/:id', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -377,7 +373,7 @@ sellersRouter.get('/:id', async (req: Request, res: Response): Promise<void> => 
 });
 
 // 4. Consultar Historial de Ventas de un Vendedor Específico
-sellersRouter.get('/:id/sales', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.get('/:id/sales', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const search = req.query.search ? String(req.query.search).trim().toLowerCase() : '';
@@ -426,7 +422,7 @@ sellersRouter.get('/:id/sales', async (req: Request, res: Response): Promise<voi
 });
 
 // 5. Crear Nuevo Vendedor (Rol VENDEDOR)
-sellersRouter.post('/', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.post('/', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       username,
@@ -533,7 +529,7 @@ sellersRouter.post('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 // 6. Actualizar Información de un Vendedor
-sellersRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.put('/:id', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { full_name, document_id, phone, email, address, password } = req.body;
@@ -608,7 +604,7 @@ sellersRouter.put('/:id', async (req: Request, res: Response): Promise<void> => 
 });
 
 // 7. Activar o Desactivar Vendedor
-sellersRouter.patch('/:id/status', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.patch('/:id/status', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { is_active } = req.body;
@@ -643,7 +639,7 @@ sellersRouter.patch('/:id/status', async (req: Request, res: Response): Promise<
 });
 
 // 8. Eliminar Vendedor (Con Validación de Integridad y Contraseña de Admin)
-sellersRouter.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+sellersRouter.delete('/:id', requireRole(['ADMINISTRADOR']), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { admin_password } = req.body;

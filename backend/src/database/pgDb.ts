@@ -34,6 +34,7 @@ function toPositional(sql: string, params?: any[]): { text: string; values: any[
   let text = sql
     .replace(/datetime\('now'\s*(?:,\s*'[^']*')*\)/gi, 'NOW()')
     .replace(/date\('now'\s*(?:,\s*'[^']*')*\)/gi, 'CURRENT_DATE')
+    .replace(/date\(([^)]+)\)\s*=\s*CURRENT_DATE/gi, "SUBSTRING($1, 1, 10) = TO_CHAR(NOW(), 'YYYY-MM-DD')")
     .replace(/LIKE\s+\?/gi, (m) => m) // LIKE se mantiene (pg es case-insensitive con ILIKE pero LIKE funciona)
     ;
 
