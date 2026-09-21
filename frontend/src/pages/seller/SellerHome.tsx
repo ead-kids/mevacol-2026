@@ -22,6 +22,7 @@ import { SellerCustomers } from './SellerCustomers';
 import { SellerProducts } from './SellerProducts';
 import { SellerSales } from './SellerSales';
 import { SellerDeliveries } from './SellerDeliveries';
+import { SellerGpsTracker } from '../../components/seller/SellerGpsTracker';
 import { api } from '../../services/api';
 import type { DashboardSellerStats, ChartDataPoint, Campaign } from '../../types';
 
@@ -93,6 +94,13 @@ export const SellerHome: React.FC = () => {
     return <SellerDeliveries onBack={() => setActiveTab('home')} />;
   }
 
+  const handleLogout = async () => {
+    try {
+      await api.stopSellerLocation();
+    } catch {}
+    logout();
+  };
+
   return (
     <div className="mobile-app-shell">
       {/* Top Mobile Bar */}
@@ -130,7 +138,7 @@ export const SellerHome: React.FC = () => {
         </div>
 
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="btn btn-secondary btn-sm"
           title="Cerrar Sesión"
           style={{ padding: '8px' }}
@@ -154,6 +162,9 @@ export const SellerHome: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Transmisor GPS en Jornada Laboral (Fase 7) */}
+        <SellerGpsTracker />
 
         {/* KPI Cards: Ventas del día/semana/mes */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>

@@ -10,6 +10,7 @@ import { AdminSales } from './AdminSales';
 import { AdminInvoices } from './AdminInvoices';
 import { AdminDeliveries } from './AdminDeliveries';
 import { AdminRoutesMap } from './AdminRoutesMap';
+import { AdminSellerLocations } from './AdminSellerLocations';
 import { AdminReports } from './AdminReports';
 import { AdminSettings } from './AdminSettings';
 import { ConnectionStatusBadge } from '../../components/common/ConnectionStatusBadge';
@@ -94,6 +95,8 @@ export const AdminLayout: React.FC = () => {
                 ? 'Gestión y Despacho de Entregas'
                 : currentTab === 'routes'
                 ? 'Mapa Logístico, Rutas & GPS'
+                : currentTab === 'locations'
+                ? 'Ubicación de Vendedores en Campo'
                 : currentTab === 'reports'
                 ? 'Reportes y Análisis'
                 : currentTab === 'settings'
@@ -141,6 +144,8 @@ export const AdminLayout: React.FC = () => {
             <AdminDeliveries />
           ) : currentTab === 'routes' ? (
             <AdminRoutesMap />
+          ) : currentTab === 'locations' ? (
+            <AdminSellerLocations />
           ) : currentTab === 'reports' ? (
             <AdminReports />
           ) : currentTab === 'settings' ? (

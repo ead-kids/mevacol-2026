@@ -7,9 +7,169 @@ import { requireRole } from '../../middlewares/role.middleware';
 
 export const sellersRouter = Router();
 
-// Todas las rutas de administración de vendedores requieren autenticación y rol ADMINISTRADOR
+// Middleware general de autenticación para todas las rutas de sellers
 sellersRouter.use(authMiddleware);
+
+// ── Rutas de Transmisión de Ubicación GPS (VENDEDOR y ADMINISTRADOR) ────────
+sellersRouter.post(
+  '/location',
+  requireRole(['VENDEDOR', 'ADMINISTRADOR']),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const sellerId = req.user!.id;
+      const { latitude, longitude, accuracy } = req.body;
+
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        res.status(400).json({ success: false, error: 'Coordenadas inválidas. Latitud y longitud numéricas requeridas.' });
+        return;
+      }
+
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        res.status(400).json({ success: false, error: 'Coordenadas fuera de rango válido.' });
+        return;
+      }
+
+      const acc = typeof accuracy === 'number' ? accuracy : null;
+
+      await queryRun(
+        `INSERT INTO seller_locations (seller_user_id, latitude, longitude, accuracy, is_active, updated_at)
+         VALUES ($1, $2, $3, $4, 1, TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'))
+         ON CONFLICT (seller_user_id) DO UPDATE SET
+           latitude = EXCLUDED.latitude,
+           longitude = EXCLUDED.longitude,
+           accuracy = EXCLUDED.accuracy,
+           is_active = 1,
+           updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')`,
+        [sellerId, latitude, longitude, acc]
+      );
+
+      res.json({
+        success: true,
+        message: 'Ubicación actualizada exitosamente.',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('Error al actualizar ubicación del vendedor:', error);
+      res.status(500).json({ success: false, error: 'Error al registrar ubicación: ' + error.message });
+    }
+  }
+);
+
+sellersRouter.post(
+  '/location/stop',
+  requireRole(['VENDEDOR', 'ADMINISTRADOR']),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const sellerId = req.user!.id;
+
+      await queryRun(
+        `UPDATE seller_locations
+         SET is_active = 0, updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+         WHERE seller_user_id = $1`,
+        [sellerId]
+      );
+
+      res.json({
+        success: true,
+        message: 'Transmisión de ubicación pausada o finalizada.',
+      });
+    } catch (error: any) {
+      console.error('Error al detener transmisión de ubicación:', error);
+      res.status(500).json({ success: false, error: 'Error al actualizar estado de ubicación: ' + error.message });
+    }
+  }
+);
+
+// Todas las rutas siguientes requieren rol ADMINISTRADOR
 sellersRouter.use(requireRole(['ADMINISTRADOR']));
+
+// ── Rutas de Supervisión de Ubicaciones (Fase 7) ─────────────────────────────
+sellersRouter.get('/locations', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rows = await queryAll<any>(`
+      SELECT
+        u.id,
+        u.username,
+        u.full_name,
+        u.phone,
+        u.email,
+        u.is_active as user_active,
+        sl.latitude,
+        sl.longitude,
+        sl.accuracy,
+        sl.is_active as location_active,
+        sl.updated_at as location_updated_at,
+        COALESCE(st.today_sales_count, 0) as today_sales_count,
+        COALESCE(st.today_sales_cop, 0) as today_sales_cop
+      FROM users u
+      LEFT JOIN seller_locations sl ON sl.seller_user_id = u.id
+      LEFT JOIN (
+        SELECT seller_user_id, COUNT(*) as today_sales_count, COALESCE(SUM(total_cop), 0) as today_sales_cop
+        FROM sales
+        WHERE date(created_at) = CURRENT_DATE
+        GROUP BY seller_user_id
+      ) st ON st.seller_user_id = u.id
+      WHERE u.role_code = 'VENDEDOR' AND u.is_active = 1
+      ORDER BY sl.updated_at DESC NULLS LAST, u.full_name ASC
+    `);
+
+    const now = Date.now();
+    const sellers = rows.map((r) => {
+      let freshness: 'LIVE' | 'STALE' | 'OFFLINE' = 'OFFLINE';
+      let minutesAgo: number | null = null;
+
+      if (r.location_updated_at && r.latitude != null && r.longitude != null) {
+        const locTime = new Date(r.location_updated_at.replace(' ', 'T')).getTime();
+        if (!isNaN(locTime)) {
+          minutesAgo = Math.max(0, Math.floor((now - locTime) / 60000));
+          if (r.location_active === 1 && minutesAgo <= 10) {
+            freshness = 'LIVE';
+          } else if (r.location_active === 1 && minutesAgo <= 60) {
+            freshness = 'STALE';
+          } else {
+            freshness = 'OFFLINE';
+          }
+        }
+      }
+
+      return {
+        id: r.id,
+        username: r.username,
+        full_name: r.full_name,
+        phone: r.phone,
+        email: r.email,
+        latitude: r.latitude != null ? Number(r.latitude) : null,
+        longitude: r.longitude != null ? Number(r.longitude) : null,
+        accuracy: r.accuracy != null ? Number(r.accuracy) : null,
+        is_active: r.location_active === 1,
+        updated_at: r.location_updated_at || null,
+        minutes_ago: minutesAgo,
+        freshness,
+        today_sales_count: Number(r.today_sales_count || 0),
+        today_sales_cop: Number(r.today_sales_cop || 0),
+      };
+    });
+
+    const totalSellers = sellers.length;
+    const liveCount = sellers.filter((s) => s.freshness === 'LIVE').length;
+    const staleCount = sellers.filter((s) => s.freshness === 'STALE').length;
+    const offlineCount = sellers.filter((s) => s.freshness === 'OFFLINE').length;
+
+    res.json({
+      success: true,
+      summary: {
+        total: totalSellers,
+        live: liveCount,
+        stale: staleCount,
+        offline: offlineCount,
+      },
+      sellers,
+    });
+  } catch (error: any) {
+    console.error('Error al obtener ubicaciones de vendedores:', error);
+    res.status(500).json({ success: false, error: 'Error al consultar ubicaciones: ' + error.message });
+  }
+});
 
 // 1. Estadísticas Globales de Vendedores
 sellersRouter.get('/stats', async (req: Request, res: Response): Promise<void> => {

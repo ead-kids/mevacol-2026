@@ -64,7 +64,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         { id: 'inventory', name: 'Inventario', icon: Boxes, active: true, phase: 3 },
         { id: 'deliveries', name: 'Entregas & Logística', icon: Truck, active: true, phase: 6 },
         { id: 'routes', name: 'Rutas & GPS', icon: Navigation, active: true, phase: 7 },
-        { id: 'locations', name: 'Ubicación de Vendedores', icon: MapPin, active: false, phase: 7 },
+        { id: 'locations', name: 'Ubicación de Vendedores', icon: MapPin, active: true, phase: 7 },
       ],
     },
     {

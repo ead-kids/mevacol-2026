@@ -27,6 +27,7 @@ import type {
   SellerStats,
   Campaign,
   CampaignDetail,
+  SellerLocationsResponse,
 } from '../types';
 
 // En desarrollo: usa el proxy de Vite (/api → localhost:4000).
@@ -660,6 +661,24 @@ class ApiService {
     return this.request(`/sellers/${id}`, {
       method: 'DELETE',
       body: JSON.stringify({ admin_password: adminPassword }),
+    });
+  }
+
+  // --- MÓDULO UBICACIÓN DE VENDEDORES (Fase 7) ---
+  async getSellerLocations(): Promise<SellerLocationsResponse> {
+    return this.request<SellerLocationsResponse>('/sellers/locations');
+  }
+
+  async updateSellerLocation(coords: { latitude: number; longitude: number; accuracy?: number }): Promise<{ success: boolean; message: string; timestamp?: string }> {
+    return this.request('/sellers/location', {
+      method: 'POST',
+      body: JSON.stringify(coords),
+    });
+  }
+
+  async stopSellerLocation(): Promise<{ success: boolean; message: string }> {
+    return this.request('/sellers/location/stop', {
+      method: 'POST',
     });
   }
 

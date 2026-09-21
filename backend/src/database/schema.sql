@@ -246,7 +246,20 @@ CREATE TABLE IF NOT EXISTS campaign_sellers (
   FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- 16. Ubicación en Tiempo Real de Vendedores (Fase 7)
+CREATE TABLE IF NOT EXISTS seller_locations (
+  seller_user_id TEXT PRIMARY KEY,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  accuracy REAL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Índices de rendimiento
+CREATE INDEX IF NOT EXISTS idx_seller_loc_active ON seller_locations(is_active);
+CREATE INDEX IF NOT EXISTS idx_seller_loc_updated ON seller_locations(updated_at);
 CREATE INDEX IF NOT EXISTS idx_campaign_sellers_camp ON campaign_sellers(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_sellers_user ON campaign_sellers(seller_user_id);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role_code);

@@ -534,3 +534,35 @@ export interface FilterOptions {
   categories: Array<{ category: string }>;
 }
 
+export type SellerLocationFreshness = 'LIVE' | 'STALE' | 'OFFLINE';
+
+export interface SellerLocation {
+  id: string;
+  username: string;
+  full_name: string;
+  phone?: string | null;
+  email?: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  is_active: boolean;
+  updated_at: string | null;
+  minutes_ago: number | null;
+  freshness: SellerLocationFreshness;
+  today_sales_count: number;
+  today_sales_cop: number;
+}
+
+export interface SellerLocationsSummary {
+  total: number;
+  live: number;
+  stale: number;
+  offline: number;
+}
+
+export interface SellerLocationsResponse {
+  success: boolean;
+  summary: SellerLocationsSummary;
+  sellers: SellerLocation[];
+}
+
