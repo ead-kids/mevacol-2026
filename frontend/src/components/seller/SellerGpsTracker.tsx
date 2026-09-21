@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Pause, Play, AlertCircle, Radio } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Pause, Play, AlertCircle, Radio, RefreshCw, CheckCircle2, Navigation } from 'lucide-react';
 import { api } from '../../services/api';
 
 export const SellerGpsTracker: React.FC = () => {
@@ -7,84 +7,153 @@ export const SellerGpsTracker: React.FC = () => {
     return localStorage.getItem('mevacol_seller_gps_active') !== 'false';
   });
   const [lastPing, setLastPing] = useState<Date | null>(null);
-  const [status, setStatus] = useState<'TRANSMITTING' | 'PAUSED' | 'DENIED' | 'ERROR'>('TRANSMITTING');
+  const [lastAccuracy, setLastAccuracy] = useState<number | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [permissionDenied, setPermissionDenied] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const intervalRef = useRef<any>(null);
+  const watchIdRef = useRef<number | null>(null);
 
-  const sendCurrentPosition = () => {
+  // Manejar recepción exitosa de coordenadas
+  const handlePositionSuccess = useCallback(async (pos: GeolocationPosition) => {
+    try {
+      const { latitude, longitude, accuracy } = pos.coords;
+      await api.updateSellerLocation({ latitude, longitude, accuracy });
+      setLastPing(new Date());
+      setLastAccuracy(Math.round(accuracy));
+      setPermissionDenied(false);
+      setErrorMessage('');
+    } catch (err: any) {
+      console.warn('No se pudo enviar la ubicación al servidor:', err);
+      // No marcar como error crítico si es un fallo transitorio de red
+      if (err.message && !err.message.includes('Failed to fetch')) {
+        setErrorMessage('Error al sincronizar con servidor');
+      }
+    } finally {
+      setIsLocating(false);
+    }
+  }, []);
+
+  // Función principal de adquisición de GPS con fallback automático
+  const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setStatus('ERROR');
-      setErrorMessage('Geolocalización no soportada por el navegador.');
+      setErrorMessage('Geolocalización no soportada');
       return;
     }
 
     if (!navigator.onLine) {
-      // Si no hay internet, no bloquear; se reintentará en el siguiente ciclo
       return;
     }
 
+    setIsLocating(true);
+
+    // Intento 1: Alta precisión (Satélite GPS) con timeout rápido (6 segundos)
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude, accuracy } = pos.coords;
-          await api.updateSellerLocation({ latitude, longitude, accuracy });
-          setLastPing(new Date());
-          setStatus('TRANSMITTING');
-          setErrorMessage('');
-        } catch (err: any) {
-          console.warn('No se pudo enviar la ubicación al servidor:', err);
-        }
+      (pos) => {
+        handlePositionSuccess(pos);
       },
       (err) => {
+        // Si el usuario denegó explícitamente el permiso
         if (err.code === err.PERMISSION_DENIED) {
-          setStatus('DENIED');
-          setErrorMessage('Permiso de GPS denegado en el navegador.');
-        } else {
-          console.warn('Error al obtener coordenadas GPS:', err.message);
+          setPermissionDenied(true);
+          setErrorMessage('Permiso de GPS no concedido en el navegador');
+          setIsLocating(false);
+          return;
         }
+
+        // Intento 2 (Fallback): Baja precisión (Red / WiFi / Antenas celulares)
+        // Resuelve en < 500ms en interiores o cuando no hay vista directa a satélites
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            handlePositionSuccess(pos);
+          },
+          (err2) => {
+            setIsLocating(false);
+            if (err2.code === err2.PERMISSION_DENIED) {
+              setPermissionDenied(true);
+              setErrorMessage('Permiso de GPS no concedido');
+            } else {
+              setErrorMessage('Buscando señal satelital...');
+            }
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 60000,
+          }
+        );
       },
       {
         enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 30000,
+        timeout: 6000,
+        maximumAge: 15000,
       }
     );
-  };
+  }, [handlePositionSuccess]);
 
-  // Efecto para controlar el ciclo de transmisión cada 60 segundos
+  // Ciclo de transmisión periódica y watchPosition
   useEffect(() => {
     if (!isSharing) {
-      setStatus('PAUSED');
       if (intervalRef.current) clearInterval(intervalRef.current);
-      // Notificar al servidor que el vendedor pausó su ubicación
+      if (watchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
       api.stopSellerLocation().catch(() => {});
       return;
     }
 
-    // Enviar inmediatamente al activar
-    sendCurrentPosition();
+    // Solicitar inmediatamente
+    requestLocation();
 
-    // Transmitir cada 60 segundos
+    // Activar watchPosition pasivo para actualizar al moverse
+    if (navigator.geolocation && watchIdRef.current === null) {
+      try {
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          (pos) => {
+            handlePositionSuccess(pos);
+          },
+          () => {}, // Errores secundarios de watchPosition ignorados para no molestar
+          { enableHighAccuracy: false, maximumAge: 30000 }
+        );
+      } catch {}
+    }
+
+    // Intervalo de respaldo cada 60 segundos
     intervalRef.current = setInterval(() => {
-      sendCurrentPosition();
+      requestLocation();
     }, 60000);
 
-    // Si la conexión vuelve a estar en línea, transmitir
     const handleOnline = () => {
-      if (isSharing) sendCurrentPosition();
+      if (isSharing) requestLocation();
     };
     window.addEventListener('online', handleOnline);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (watchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
       window.removeEventListener('online', handleOnline);
     };
-  }, [isSharing]);
+  }, [isSharing, requestLocation, handlePositionSuccess]);
 
   const toggleSharing = () => {
     const nextState = !isSharing;
     setIsSharing(nextState);
     localStorage.setItem('mevacol_seller_gps_active', String(nextState));
+    if (nextState) {
+      setPermissionDenied(false);
+      setErrorMessage('');
+    }
+  };
+
+  // Solicitar permiso mediante gesto de usuario directo (imprescindible en iOS Safari)
+  const handleRequestPermission = () => {
+    setPermissionDenied(false);
+    setErrorMessage('');
+    requestLocation();
   };
 
   return (
@@ -97,52 +166,59 @@ export const SellerGpsTracker: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '12px',
+        gap: '10px',
         marginTop: '6px',
         marginBottom: '6px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
         <div
+          onClick={isSharing ? requestLocation : undefined}
           style={{
-            width: '36px',
-            height: '36px',
+            width: '38px',
+            height: '38px',
             borderRadius: '10px',
-            background:
-              status === 'TRANSMITTING'
-                ? 'rgba(16, 185, 129, 0.15)'
-                : status === 'PAUSED'
-                ? 'rgba(245, 158, 11, 0.15)'
-                : 'rgba(239, 68, 68, 0.15)',
-            color:
-              status === 'TRANSMITTING'
-                ? '#34d399'
-                : status === 'PAUSED'
-                ? '#fbbf24'
-                : '#f87171',
+            background: !isSharing
+              ? 'rgba(245, 158, 11, 0.15)'
+              : permissionDenied
+              ? 'rgba(239, 68, 68, 0.15)'
+              : lastPing
+              ? 'rgba(16, 185, 129, 0.15)'
+              : 'rgba(59, 130, 246, 0.15)',
+            color: !isSharing
+              ? '#fbbf24'
+              : permissionDenied
+              ? '#f87171'
+              : lastPing
+              ? '#34d399'
+              : '#60a5fa',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
+            cursor: isSharing ? 'pointer' : 'default',
           }}
+          title={isSharing ? 'Toca para forzar actualización GPS' : ''}
         >
-          {status === 'TRANSMITTING' ? (
-            <Radio size={18} style={{ animation: 'pulse 2s infinite' }} />
-          ) : status === 'PAUSED' ? (
+          {!isSharing ? (
             <Pause size={18} />
-          ) : (
+          ) : permissionDenied ? (
             <AlertCircle size={18} />
+          ) : isLocating ? (
+            <RefreshCw size={18} className="animate-spin" />
+          ) : (
+            <Radio size={18} style={{ animation: lastPing ? 'pulse 2s infinite' : 'none' }} />
           )}
         </div>
 
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff' }}>
-              {status === 'TRANSMITTING'
-                ? 'Ubicación en Vivo'
-                : status === 'PAUSED'
+              {!isSharing
                 ? 'GPS en Pausa'
-                : 'GPS No Disponible'}
+                : permissionDenied
+                ? 'Permiso de GPS Requerido'
+                : 'Ubicación en Vivo'}
             </span>
             <span
               style={{
@@ -150,56 +226,117 @@ export const SellerGpsTracker: React.FC = () => {
                 fontWeight: 700,
                 padding: '2px 6px',
                 borderRadius: '9999px',
-                background:
-                  status === 'TRANSMITTING'
-                    ? 'rgba(16, 185, 129, 0.2)'
-                    : 'rgba(148, 163, 184, 0.2)',
-                color: status === 'TRANSMITTING' ? '#34d399' : '#94a3b8',
+                background: !isSharing
+                  ? 'rgba(148, 163, 184, 0.2)'
+                  : permissionDenied
+                  ? 'rgba(239, 68, 68, 0.2)'
+                  : 'rgba(16, 185, 129, 0.2)',
+                color: !isSharing
+                  ? '#94a3b8'
+                  : permissionDenied
+                  ? '#fca5a5'
+                  : '#34d399',
               }}
             >
-              {status === 'TRANSMITTING' ? 'Activo' : 'Pausado'}
+              {!isSharing ? 'Pausado' : permissionDenied ? 'Atención' : 'Activo'}
             </span>
           </div>
 
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>
-            {status === 'TRANSMITTING' && lastPing
-              ? `Último ping: ${lastPing.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-              : status === 'PAUSED'
-              ? 'Transmisión detenida por el vendedor'
-              : errorMessage || 'Permiso o soporte requerido'}
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {!isSharing ? (
+              'Transmisión detenida por el vendedor'
+            ) : permissionDenied ? (
+              'Toca "Activar GPS" para conceder acceso'
+            ) : lastPing ? (
+              <span style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <CheckCircle2 size={12} />
+                Ping: {lastPing.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {lastAccuracy !== null ? ` (±${lastAccuracy}m)` : ''}
+              </span>
+            ) : isLocating ? (
+              <span style={{ color: '#60a5fa' }}>Buscando coordenadas satelitales...</span>
+            ) : (
+              errorMessage || 'Iniciando transmisión de jornada...'
+            )}
           </div>
         </div>
       </div>
 
-      <button
-        onClick={toggleSharing}
-        style={{
-          padding: '6px 12px',
-          borderRadius: '8px',
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          cursor: 'pointer',
-          border: 'none',
-          background: isSharing ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.2)',
-          color: isSharing ? '#fca5a5' : '#93c5fd',
-          transition: 'all 0.2s',
-        }}
-      >
-        {isSharing ? (
-          <>
-            <Pause size={13} />
-            Pausar
-          </>
-        ) : (
-          <>
-            <Play size={13} />
-            Reanudar
-          </>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        {permissionDenied && (
+          <button
+            onClick={handleRequestPermission}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '8px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+              border: 'none',
+              background: '#2563eb',
+              color: '#ffffff',
+            }}
+          >
+            <Navigation size={12} />
+            Activar GPS
+          </button>
         )}
-      </button>
+
+        {isSharing && !permissionDenied && (
+          <button
+            onClick={requestLocation}
+            disabled={isLocating}
+            title="Transmitir posición ahora"
+            style={{
+              padding: '6px 8px',
+              borderRadius: '8px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              cursor: 'pointer',
+              border: 'none',
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#cbd5e1',
+            }}
+          >
+            <RefreshCw size={13} className={isLocating ? 'animate-spin' : ''} />
+          </button>
+        )}
+
+        <button
+          onClick={toggleSharing}
+          style={{
+            padding: '6px 12px',
+            borderRadius: '8px',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            border: 'none',
+            background: isSharing ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.2)',
+            color: isSharing ? '#fca5a5' : '#93c5fd',
+            transition: 'all 0.2s',
+          }}
+        >
+          {isSharing ? (
+            <>
+              <Pause size={13} />
+              Pausar
+            </>
+          ) : (
+            <>
+              <Play size={13} />
+              Reanudar
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 };

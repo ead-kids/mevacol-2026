@@ -106,10 +106,10 @@ sellersRouter.get('/locations', async (req: Request, res: Response): Promise<voi
       LEFT JOIN (
         SELECT seller_user_id, COUNT(*) as today_sales_count, COALESCE(SUM(total_cop), 0) as today_sales_cop
         FROM sales
-        WHERE date(created_at) = CURRENT_DATE
+        WHERE SUBSTRING(created_at, 1, 10) = TO_CHAR(NOW(), 'YYYY-MM-DD')
         GROUP BY seller_user_id
       ) st ON st.seller_user_id = u.id
-      WHERE u.role_code = 'VENDEDOR' AND u.is_active = 1
+      WHERE UPPER(TRIM(u.role_code)) = 'VENDEDOR'
       ORDER BY sl.updated_at DESC NULLS LAST, u.full_name ASC
     `);
 

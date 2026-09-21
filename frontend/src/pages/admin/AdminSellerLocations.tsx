@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Navigation,
+  AlertCircle,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import type { SellerLocation, SellerLocationsSummary } from '../../types';
@@ -31,19 +32,54 @@ export const AdminSellerLocations: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'LIVE' | 'STALE' | 'OFFLINE'>('ALL');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const timerRef = useRef<any>(null);
 
   const fetchLocations = useCallback(async (isSilent = false) => {
     if (!isSilent) setRefreshing(true);
+    setFetchError(null);
     try {
       const res = await api.getSellerLocations();
-      if (res.success) {
-        setSellers(res.sellers);
-        setSummary(res.summary);
+      if (res && res.success) {
+        setSellers(res.sellers || []);
+        setSummary(res.summary || { total: res.sellers?.length || 0, live: 0, stale: 0, offline: res.sellers?.length || 0 });
         setLastRefreshedAt(new Date());
       }
-    } catch (err) {
-      console.error('Error al consultar ubicaciones de vendedores:', err);
+    } catch (err: any) {
+      console.warn('Fallo al obtener ubicaciones activas, intentando respaldo con catálogo de vendedores:', err);
+      try {
+        const fallbackRes = await api.getSellers();
+        if (fallbackRes && fallbackRes.sellers && fallbackRes.sellers.length > 0) {
+          const fallbackSellers: SellerLocation[] = fallbackRes.sellers.map((s) => ({
+            id: s.id,
+            username: s.username,
+            full_name: s.full_name,
+            phone: s.phone || null,
+            email: s.email || null,
+            latitude: null,
+            longitude: null,
+            accuracy: null,
+            is_active: false,
+            updated_at: null,
+            minutes_ago: null,
+            freshness: 'OFFLINE',
+            today_sales_count: Number((s as any).today_sales || (s as any).today_sales_count || 0),
+            today_sales_cop: Number((s as any).today_cop || (s as any).today_sales_cop || 0),
+          }));
+          setSellers(fallbackSellers);
+          setSummary({
+            total: fallbackSellers.length,
+            live: 0,
+            stale: 0,
+            offline: fallbackSellers.length,
+          });
+          setLastRefreshedAt(new Date());
+        } else {
+          setFetchError(err.message || 'No fue posible conectar con el servidor.');
+        }
+      } catch {
+        setFetchError(err.message || 'No fue posible conectar con el servidor.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -127,6 +163,24 @@ export const AdminSellerLocations: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Alerta de Error de Conexión si ocurre */}
+      {fetchError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <strong className="font-semibold">Aviso de conexión:</strong> {fetchError}. Asegúrate de haber iniciado sesión como Administrador en este dispositivo.
+            </div>
+          </div>
+          <button
+            onClick={() => fetchLocations(false)}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs shrink-0 transition"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
 
       {/* Tarjetas KPI de Estado */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
