@@ -3,7 +3,7 @@ import {
   Users, Package, AlertTriangle, DollarSign, ShoppingCart,
   Receipt, Truck, CheckCircle2, XCircle, Clock, ArrowRight,
   TrendingUp, BarChart3, RefreshCw, Calendar, Box,
-  UserCheck, Layers
+  UserCheck, Layers, Award
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -436,6 +436,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToUsers, onG
           {[
             { label: 'Usuarios', icon: <Users size={15} />, tab: 'users' },
             { label: 'Vendedores', icon: <UserCheck size={15} />, tab: 'sellers' },
+            { label: 'Campañas', icon: <Award size={15} />, tab: 'campaigns' },
             { label: 'Clientes', icon: <Users size={15} />, tab: 'customers' },
             { label: 'Productos', icon: <Package size={15} />, tab: 'products' },
             { label: 'Ventas', icon: <ShoppingCart size={15} />, tab: 'sales' },

@@ -34,12 +34,25 @@ export async function initDatabase(): Promise<void> {
       await execRaw(stmt);
     }
 
-    // Migraciones automáticas no destructivas (Soporte Fase 2 Vendedores)
+    // Migraciones automáticas no destructivas (Soporte Fase 2 Vendedores y Campañas)
     try {
       await queryRun('ALTER TABLE users ADD COLUMN IF NOT EXISTS document_id TEXT');
       await queryRun('ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT');
+      await queryRun('ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS is_general INTEGER DEFAULT 1');
+      await queryRun(`
+        CREATE TABLE IF NOT EXISTS campaign_sellers (
+          campaign_id TEXT NOT NULL,
+          seller_user_id TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+          PRIMARY KEY (campaign_id, seller_user_id),
+          FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
+          FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+      await queryRun('CREATE INDEX IF NOT EXISTS idx_campaign_sellers_camp ON campaign_sellers(campaign_id)');
+      await queryRun('CREATE INDEX IF NOT EXISTS idx_campaign_sellers_user ON campaign_sellers(seller_user_id)');
     } catch (migErr) {
-      console.warn('Nota migración users:', migErr);
+      console.warn('Nota migración fase 2:', migErr);
     }
 
     // Sembrar roles del sistema si no existen

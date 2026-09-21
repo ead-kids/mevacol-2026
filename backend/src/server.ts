@@ -15,6 +15,7 @@ import { geoRouter } from './modules/geo/geo.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { reportsRouter } from './modules/reports/reports.routes';
 import { sellersRouter } from './modules/sellers/sellers.routes';
+import { campaignsRouter } from './modules/campaigns/campaigns.routes';
 import { errorHandler } from './middlewares/error.middleware';
 
 export function createServer(): Application {
@@ -75,6 +76,7 @@ export function createServer(): Application {
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/reports', reportsRouter);
   app.use('/api/sellers', sellersRouter);
+  app.use('/api/campaigns', campaignsRouter);
 
   // Servir frontend PWA en producción si existe la compilación (dist)
   const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');

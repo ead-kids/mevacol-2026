@@ -25,6 +25,8 @@ import type {
   FilterOptions,
   SellerUser,
   SellerStats,
+  Campaign,
+  CampaignDetail,
 } from '../types';
 
 // En desarrollo: usa el proxy de Vite (/api → localhost:4000).
@@ -658,6 +660,71 @@ class ApiService {
     return this.request(`/sellers/${id}`, {
       method: 'DELETE',
       body: JSON.stringify({ admin_password: adminPassword }),
+    });
+  }
+
+  // --- MÓDULO CAMPAÑAS E INCENTIVOS (Fase 2) ---
+  async getCampaigns(search?: string, status?: string): Promise<{ success: boolean; count: number; campaigns: Campaign[] }> {
+    const query = new URLSearchParams();
+    if (search) query.append('search', search);
+    if (status) query.append('status', status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return this.request<{ success: boolean; count: number; campaigns: Campaign[] }>(`/campaigns${qs}`);
+  }
+
+  async getActiveCampaigns(): Promise<{ success: boolean; campaigns: Campaign[] }> {
+    return this.request<{ success: boolean; campaigns: Campaign[] }>('/campaigns/active');
+  }
+
+  async getCampaignById(id: string): Promise<CampaignDetail & { success: boolean }> {
+    return this.request<CampaignDetail & { success: boolean }>(`/campaigns/${id}`);
+  }
+
+  async createCampaign(data: {
+    name: string;
+    description?: string;
+    target_amount_cop: number;
+    reward_description: string;
+    start_date: string;
+    end_date: string;
+    is_general: boolean | number;
+    seller_ids?: string[];
+  }): Promise<{ success: boolean; message: string; campaign_id: string }> {
+    return this.request('/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCampaign(
+    id: string,
+    data: {
+      name: string;
+      description?: string;
+      target_amount_cop: number;
+      reward_description: string;
+      start_date: string;
+      end_date: string;
+      is_general: boolean | number;
+      seller_ids?: string[];
+    }
+  ): Promise<{ success: boolean; message: string }> {
+    return this.request(`/campaigns/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async toggleCampaignStatus(id: string, is_active: boolean | number): Promise<{ success: boolean; message: string }> {
+    return this.request(`/campaigns/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active }),
+    });
+  }
+
+  async deleteCampaign(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/campaigns/${id}`, {
+      method: 'DELETE',
     });
   }
 }

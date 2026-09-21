@@ -36,6 +36,52 @@ export interface SellerStats {
   month_sales_cop: number;
 }
 
+export interface Campaign {
+  id: string;
+  name: string;
+  description: string | null;
+  target_amount_cop: number;
+  reward_description: string;
+  start_date: string;
+  end_date: string;
+  is_general: number;
+  is_active: number;
+  created_at: string;
+  participating_sellers_count?: number;
+  total_volume_cop?: number;
+  total_sales_count?: number;
+  winners_count?: number;
+  accumulated_cop?: number;
+  sales_count?: number;
+  remaining_cop?: number;
+  progress_percent?: number;
+  is_completed?: boolean;
+  days_remaining?: number;
+}
+
+export interface CampaignSellerProgress {
+  seller_id: string;
+  full_name: string;
+  username: string;
+  document_id?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  is_active: number;
+  accumulated_cop: number;
+  sales_count: number;
+  remaining_cop: number;
+  progress_percent: number;
+  is_completed: boolean;
+}
+
+export interface CampaignDetail {
+  campaign: Campaign & {
+    participating_count: number;
+    winners_count: number;
+  };
+  sellers_progress: CampaignSellerProgress[];
+}
+
 export interface SystemStatus {
   success: boolean;
   systemName: string;

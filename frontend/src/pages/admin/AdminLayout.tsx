@@ -4,6 +4,7 @@ import { AdminDashboard } from './AdminDashboard';
 import { AdminUsers } from './AdminUsers';
 import { AdminCustomers } from './AdminCustomers';
 import { AdminSellers } from './AdminSellers';
+import { AdminCampaigns } from './AdminCampaigns';
 import { AdminProducts } from './AdminProducts';
 import { AdminSales } from './AdminSales';
 import { AdminInvoices } from './AdminInvoices';
@@ -79,6 +80,8 @@ export const AdminLayout: React.FC = () => {
                 ? 'Panel de Control Maestro'
                 : currentTab === 'sellers'
                 ? 'Gestión de Vendedores'
+                : currentTab === 'campaigns'
+                ? 'Campañas e Incentivos'
                 : currentTab === 'customers'
                 ? 'Directorio de Clientes'
                 : currentTab === 'products' || currentTab === 'inventory'
@@ -124,6 +127,8 @@ export const AdminLayout: React.FC = () => {
             />
           ) : currentTab === 'sellers' ? (
             <AdminSellers />
+          ) : currentTab === 'campaigns' ? (
+            <AdminCampaigns />
           ) : currentTab === 'customers' ? (
             <AdminCustomers />
           ) : currentTab === 'products' || currentTab === 'inventory' ? (

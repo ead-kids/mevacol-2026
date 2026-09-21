@@ -231,11 +231,24 @@ CREATE TABLE IF NOT EXISTS campaigns (
   reward_description TEXT NOT NULL,
   start_date TEXT NOT NULL,
   end_date TEXT NOT NULL,
+  is_general INTEGER NOT NULL DEFAULT 1,
   is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
 );
 
+-- 15. Asignación de Vendedores a Campañas
+CREATE TABLE IF NOT EXISTS campaign_sellers (
+  campaign_id TEXT NOT NULL,
+  seller_user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+  PRIMARY KEY (campaign_id, seller_user_id),
+  FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
+  FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Índices de rendimiento
+CREATE INDEX IF NOT EXISTS idx_campaign_sellers_camp ON campaign_sellers(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_sellers_user ON campaign_sellers(seller_user_id);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role_code);
 CREATE INDEX IF NOT EXISTS idx_sales_seller ON sales(seller_user_id);
 CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);

@@ -7,11 +7,12 @@ import {
   LogOut,
   ShieldAlert,
   ChevronRight,
-  Info,
   Package,
   Truck,
   TrendingUp,
   RefreshCw,
+  Gift,
+  X,
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
@@ -22,7 +23,7 @@ import { SellerProducts } from './SellerProducts';
 import { SellerSales } from './SellerSales';
 import { SellerDeliveries } from './SellerDeliveries';
 import { api } from '../../services/api';
-import type { DashboardSellerStats, ChartDataPoint } from '../../types';
+import type { DashboardSellerStats, ChartDataPoint, Campaign } from '../../types';
 
 export const SellerHome: React.FC = () => {
   const { user, logout } = useAuth();
@@ -30,18 +31,21 @@ export const SellerHome: React.FC = () => {
   const [salesMode, setSalesMode] = useState<'create' | 'history'>('create');
   const [sellerStats, setSellerStats] = useState<DashboardSellerStats | null>(null);
   const [trendData, setTrendData] = useState<ChartDataPoint[]>([]);
-  const [modalInfo, setModalInfo] = useState<{ title: string; desc: string; phase: number } | null>(null);
+  const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([]);
+  const [isCampaignsModalOpen, setIsCampaignsModalOpen] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   const fetchStats = async () => {
     setIsLoadingStats(true);
     try {
-      const [dashRes, trendRes] = await Promise.allSettled([
+      const [dashRes, trendRes, campRes] = await Promise.allSettled([
         api.getDashboardSeller(),
         api.getDashboardChartsSellerTrend(),
+        api.getActiveCampaigns(),
       ]);
       if (dashRes.status === 'fulfilled') setSellerStats(dashRes.value.data);
       if (trendRes.status === 'fulfilled') setTrendData(trendRes.value.data.daily || []);
+      if (campRes.status === 'fulfilled') setActiveCampaigns(campRes.value.campaigns || []);
     } catch (err) {
       console.error('Error al cargar métricas de vendedor:', err);
     } finally {
@@ -53,12 +57,8 @@ export const SellerHome: React.FC = () => {
     fetchStats();
   }, [activeTab]);
 
-  const handleTileClick = (title: string, desc: string, phase: number = 2) => {
-    setModalInfo({ title, desc, phase });
-  };
-
-  const formatCOP = (val: number) =>
-    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
+  const formatCOP = (val: number | undefined | null) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(val) || 0);
 
   const formatNum = (val: number) => new Intl.NumberFormat('es-CO').format(val);
 
@@ -218,6 +218,119 @@ export const SellerHome: React.FC = () => {
           </div>
         </div>
 
+        {/* Sección Destacada: Meta Comercial & Incentivo Activo */}
+        {activeCampaigns.length > 0 && (() => {
+          const camp = activeCampaigns[0];
+          return (
+            <div
+              className="glass-card"
+              style={{
+                padding: '16px',
+                border: '1px solid rgba(168, 85, 247, 0.4)',
+                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'rgba(168, 85, 247, 0.25)',
+                      color: '#c084fc',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Award size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', color: '#c084fc', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Meta Comercial Activa
+                    </div>
+                    <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#ffffff' }}>
+                      {camp.name}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsCampaignsModalOpen(true)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '4px 8px' }}
+                >
+                  Ver Detalle
+                </button>
+              </div>
+
+              {/* Premio destacado */}
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#fbbf24', fontWeight: 700 }}>
+                  <Gift size={15} />
+                  <span>Premio: {camp.reward_description}</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {camp.days_remaining} días rest.
+                </div>
+              </div>
+
+              {/* Barra de progreso */}
+              <div style={{ marginBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Progreso:</span>
+                  <span style={{ fontWeight: 800, color: camp.is_completed ? '#34d399' : '#c084fc' }}>
+                    {camp.progress_percent}%
+                  </span>
+                </div>
+                <div style={{ height: '10px', borderRadius: '5px', background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${camp.progress_percent}%`,
+                      borderRadius: '5px',
+                      background: camp.is_completed
+                        ? 'linear-gradient(90deg, #10b981 0%, #059669 100%)'
+                        : 'linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%)',
+                      transition: 'width 0.5s ease',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Detalle numérico: Acumulado vs Meta */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', marginTop: '6px' }}>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Vendido: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{formatCOP(camp.accumulated_cop)}</strong>
+                  <span style={{ color: 'var(--text-muted)' }}> / {formatCOP(camp.target_amount_cop)}</span>
+                </div>
+                <div>
+                  {camp.is_completed ? (
+                    <span style={{ color: '#34d399', fontWeight: 800 }}>¡Premio Ganado! 🏆</span>
+                  ) : (
+                    <span style={{ color: '#fbbf24', fontWeight: 600 }}>Faltan {formatCOP(camp.remaining_cop)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Accesos Rápidos Táctiles (Touch Targets Grandes para Celulares) */}
         <div>
           <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
@@ -327,14 +440,16 @@ export const SellerHome: React.FC = () => {
             {/* Botón 7: Campañas e Incentivos */}
             <div
               className="mobile-touch-card"
-              onClick={() => handleTileClick('Campañas e Incentivos', 'Podrás ver tus metas mensuales, porcentaje de cumplimiento acumulado y premios asignados por el administrador.')}
+              onClick={() => setIsCampaignsModalOpen(true)}
             >
               <div className="touch-icon-box purple">
                 <Award size={24} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Metas e Incentivos</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Ver progreso de metas y premios</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {activeCampaigns.length > 0 ? `${activeCampaigns.length} meta(s) activa(s) · Premios` : 'Consultar metas y premios asignados'}
+                </div>
               </div>
               <ChevronRight size={20} color="var(--text-muted)" />
             </div>
@@ -404,31 +519,137 @@ export const SellerHome: React.FC = () => {
         </div>
       </nav>
 
-      {/* Modal de Información de Fase */}
-      {modalInfo && (
+      {/* Modal Móvil: Mis Metas e Incentivos Activos */}
+      {isCampaignsModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
+          <div className="modal-content" style={{ maxWidth: '480px', width: '95%' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Info size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '1.15rem' }}>{modalInfo.title}</h3>
+                <Award size={20} color="#c084fc" />
+                <h3 style={{ fontSize: '1.15rem', margin: 0 }}>Mis Metas e Incentivos</h3>
               </div>
+              <button
+                onClick={() => setIsCampaignsModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
             </div>
-            <div className="modal-body">
-              <p style={{ fontSize: '0.92rem', marginBottom: '16px' }}>{modalInfo.desc}</p>
-              <div style={{
-                background: 'rgba(59, 130, 246, 0.1)',
-                padding: '12px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.82rem',
-                color: '#93c5fd',
-              }}>
-                📌 <strong>Arquitectura preparada:</strong> Se activará en la <strong>Fase {modalInfo.phase}</strong> según el plan de trabajo acordado.
-              </div>
+
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '70vh', overflowY: 'auto' }}>
+              {activeCampaigns.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)' }}>
+                  <Award size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
+                  <p style={{ fontSize: '0.9rem', margin: 0 }}>
+                    Actualmente no tienes campañas comerciales asignadas activas.
+                  </p>
+                </div>
+              ) : (
+                activeCampaigns.map((camp) => (
+                  <div
+                    key={camp.id}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: camp.is_completed ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
+                      borderRadius: '10px',
+                      padding: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                          {camp.name}
+                        </div>
+                        {camp.description && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {camp.description}
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        className={camp.is_completed ? 'badge badge-success' : 'badge'}
+                        style={!camp.is_completed ? { background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' } : {}}
+                      >
+                        {camp.is_completed ? '🏆 Cumplida' : 'En Curso'}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                        borderRadius: '8px',
+                        padding: '8px 10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#fbbf24', fontWeight: 700 }}>
+                        <Gift size={16} />
+                        <span>Premio: {camp.reward_description}</span>
+                      </div>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Avance acumulado:</span>
+                        <span style={{ fontWeight: 800, color: camp.is_completed ? '#34d399' : '#c084fc' }}>
+                          {camp.progress_percent}%
+                        </span>
+                      </div>
+                      <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            width: `${camp.progress_percent}%`,
+                            height: '100%',
+                            borderRadius: '4px',
+                            background: camp.is_completed
+                              ? 'linear-gradient(90deg, #10b981 0%, #059669 100%)'
+                              : 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.78rem' }}>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)' }}>Meta requerida:</div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatCOP(camp.target_amount_cop)}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)' }}>Tus ventas válidas:</div>
+                        <div style={{ fontWeight: 700, color: '#34d399' }}>{formatCOP(camp.accumulated_cop)}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '8px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        Vence: {camp.end_date.split(' ')[0]} ({camp.days_remaining} días)
+                      </span>
+                      {camp.is_completed ? (
+                        <span style={{ color: '#34d399', fontWeight: 700 }}>¡Meta lograda!</span>
+                      ) : (
+                        <span style={{ color: '#fbbf24', fontWeight: 600 }}>Faltan {formatCOP(camp.remaining_cop)}</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
+
             <div className="modal-footer">
-              <button onClick={() => setModalInfo(null)} className="btn btn-primary btn-sm" style={{ width: '100%' }}>
-                Entendido
+              <button
+                type="button"
+                onClick={() => setIsCampaignsModalOpen(false)}
+                className="btn btn-primary btn-sm"
+                style={{ width: '100%' }}
+              >
+                Cerrar
               </button>
             </div>
           </div>
