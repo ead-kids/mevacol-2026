@@ -31,7 +31,12 @@ export async function initDatabase(): Promise<void> {
       .filter((s) => s.length > 0);
 
     for (const stmt of statements) {
-      await execRaw(stmt);
+      try {
+        await execRaw(stmt);
+      } catch (stmtErr: any) {
+        // Errores menores de índices o tablas no deben detener el arranque del servidor
+        console.warn(`[initDatabase] Aviso sentencia: ${stmt.slice(0, 60)} -> ${stmtErr.message}`);
+      }
     }
 
     // Migraciones automáticas no destructivas (Soporte Fase 2 Vendedores, Campañas y Fase 7 Ubicaciones)

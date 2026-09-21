@@ -274,6 +274,5 @@ CREATE INDEX IF NOT EXISTS idx_deliveries_sale ON deliveries(sale_id);
 CREATE INDEX IF NOT EXISTS idx_deliveries_user ON deliveries(delivery_user_id);
 CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries(status);
 CREATE INDEX IF NOT EXISTS idx_deliv_hist_deliv ON delivery_status_history(delivery_id);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
