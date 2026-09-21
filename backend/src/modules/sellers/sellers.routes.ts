@@ -31,37 +31,33 @@ sellersRouter.post(
 
       const acc = typeof accuracy === 'number' ? accuracy : null;
 
-      const upsertSql = `
-        INSERT INTO seller_locations (seller_user_id, latitude, longitude, accuracy, is_active, updated_at)
-        VALUES (?, ?, ?, ?, 1, TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'))
-        ON CONFLICT (seller_user_id) DO UPDATE SET
-          latitude = EXCLUDED.latitude,
-          longitude = EXCLUDED.longitude,
-          accuracy = EXCLUDED.accuracy,
-          is_active = 1,
-          updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
-      `;
-
+      // Asegurar columnas si faltan en la tabla existente
       try {
-        await queryRun(upsertSql, [sellerId, latitude, longitude, acc]);
-      } catch (dbErr: any) {
-        // Si la tabla aún no existe en producción, crearla al vuelo y reintentar
-        if (dbErr.code === '42P01' || dbErr.message?.includes('seller_locations')) {
-          await queryRun(`
-            CREATE TABLE IF NOT EXISTS seller_locations (
-              seller_user_id TEXT PRIMARY KEY,
-              latitude REAL NOT NULL,
-              longitude REAL NOT NULL,
-              accuracy REAL,
-              is_active INTEGER NOT NULL DEFAULT 1,
-              updated_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
-              FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-          `);
-          await queryRun(upsertSql, [sellerId, latitude, longitude, acc]);
-        } else {
-          throw dbErr;
-        }
+        await queryRun('ALTER TABLE seller_locations ADD COLUMN IF NOT EXISTS seller_user_id TEXT');
+        await queryRun('ALTER TABLE seller_locations ADD COLUMN IF NOT EXISTS user_id TEXT');
+        await queryRun('ALTER TABLE seller_locations ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1');
+        await queryRun('ALTER TABLE seller_locations ADD COLUMN IF NOT EXISTS updated_at TEXT');
+      } catch {}
+
+      // 1. Comprobar si ya existe registro de ubicación para este usuario
+      const existing = await queryOne<{ id: string }>(
+        'SELECT id FROM seller_locations WHERE seller_user_id = ? OR user_id = ? LIMIT 1',
+        [sellerId, sellerId]
+      );
+
+      if (existing) {
+        await queryRun(
+          `UPDATE seller_locations
+           SET latitude = ?, longitude = ?, accuracy = ?, is_active = 1, updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+           WHERE id = ?`,
+          [latitude, longitude, acc, existing.id]
+        );
+      } else {
+        await queryRun(
+          `INSERT INTO seller_locations (id, seller_user_id, user_id, latitude, longitude, accuracy, is_active, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 1, TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'))`,
+          [uuidv4(), sellerId, sellerId, latitude, longitude, acc]
+        );
       }
 
       res.json({
@@ -86,8 +82,8 @@ sellersRouter.post(
         await queryRun(
           `UPDATE seller_locations
            SET is_active = 0, updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
-           WHERE seller_user_id = ?`,
-          [sellerId]
+           WHERE seller_user_id = ? OR user_id = ?`,
+          [sellerId, sellerId]
         );
       } catch (dbErr: any) {
         if (!dbErr.message?.includes('seller_locations') && dbErr.code !== '42P01') {
@@ -125,7 +121,7 @@ sellersRouter.get('/locations', requireRole(['ADMINISTRADOR']), async (req: Requ
         COALESCE(st.today_sales_count, 0) as today_sales_count,
         COALESCE(st.today_sales_cop, 0) as today_sales_cop
       FROM users u
-      LEFT JOIN seller_locations sl ON sl.seller_user_id = u.id
+      LEFT JOIN seller_locations sl ON (sl.seller_user_id = u.id OR sl.user_id = u.id)
       LEFT JOIN (
         SELECT seller_user_id, COUNT(*) as today_sales_count, COALESCE(SUM(total_cop), 0) as today_sales_cop
         FROM sales

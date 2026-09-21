@@ -59,15 +59,22 @@ export async function initDatabase(): Promise<void> {
 
       await queryRun(`
         CREATE TABLE IF NOT EXISTS seller_locations (
-          seller_user_id TEXT PRIMARY KEY,
+          id TEXT PRIMARY KEY,
+          seller_user_id TEXT,
+          user_id TEXT,
           latitude REAL NOT NULL,
           longitude REAL NOT NULL,
           accuracy REAL,
           is_active INTEGER NOT NULL DEFAULT 1,
-          updated_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
-          FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
+          updated_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
         )
       `);
+      await queryRun('ALTER TABLE seller_locations ADD COLUMN IF NOT EXISTS seller_user_id TEXT');
+      await queryRun('ALTER TABLE seller_locations ADD COLUMN IF NOT EXISTS user_id TEXT');
+      await queryRun('ALTER TABLE seller_locations ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1');
+      await queryRun('ALTER TABLE seller_locations ADD COLUMN IF NOT EXISTS updated_at TEXT');
+      await queryRun('UPDATE seller_locations SET seller_user_id = user_id WHERE seller_user_id IS NULL AND user_id IS NOT NULL');
+      await queryRun('UPDATE seller_locations SET user_id = seller_user_id WHERE user_id IS NULL AND seller_user_id IS NOT NULL');
       await queryRun('CREATE INDEX IF NOT EXISTS idx_seller_loc_active ON seller_locations(is_active)');
       await queryRun('CREATE INDEX IF NOT EXISTS idx_seller_loc_updated ON seller_locations(updated_at)');
     } catch (migErr) {
