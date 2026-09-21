@@ -55,7 +55,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
           return;
         }
 
-        if (user.is_active !== 1) {
+        const isActive = Number(user.is_active) === 1 || String(user.is_active) === 'true';
+        if (!isActive) {
           res.status(403).json({
             success: false,
             error: 'Esta cuenta ha sido desactivada por la administración.',

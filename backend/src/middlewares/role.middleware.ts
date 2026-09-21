@@ -10,7 +10,10 @@ export function requireRole(allowedRoles: string[]) {
       return;
     }
 
-    if (!allowedRoles.includes(req.user.role_code)) {
+    const userRole = (req.user.role_code || '').trim().toUpperCase();
+    const normalizedAllowed = allowedRoles.map((r) => r.trim().toUpperCase());
+
+    if (!normalizedAllowed.includes(userRole)) {
       res.status(403).json({
         success: false,
         error: `Acceso restringido. Su rol (${req.user.role_code}) no tiene permisos para realizar esta operación.`,

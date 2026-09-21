@@ -31,17 +31,38 @@ sellersRouter.post(
 
       const acc = typeof accuracy === 'number' ? accuracy : null;
 
-      await queryRun(
-        `INSERT INTO seller_locations (seller_user_id, latitude, longitude, accuracy, is_active, updated_at)
-         VALUES ($1, $2, $3, $4, 1, TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'))
-         ON CONFLICT (seller_user_id) DO UPDATE SET
-           latitude = EXCLUDED.latitude,
-           longitude = EXCLUDED.longitude,
-           accuracy = EXCLUDED.accuracy,
-           is_active = 1,
-           updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')`,
-        [sellerId, latitude, longitude, acc]
-      );
+      const upsertSql = `
+        INSERT INTO seller_locations (seller_user_id, latitude, longitude, accuracy, is_active, updated_at)
+        VALUES (?, ?, ?, ?, 1, TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'))
+        ON CONFLICT (seller_user_id) DO UPDATE SET
+          latitude = EXCLUDED.latitude,
+          longitude = EXCLUDED.longitude,
+          accuracy = EXCLUDED.accuracy,
+          is_active = 1,
+          updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+      `;
+
+      try {
+        await queryRun(upsertSql, [sellerId, latitude, longitude, acc]);
+      } catch (dbErr: any) {
+        // Si la tabla aún no existe en producción, crearla al vuelo y reintentar
+        if (dbErr.code === '42P01' || dbErr.message?.includes('seller_locations')) {
+          await queryRun(`
+            CREATE TABLE IF NOT EXISTS seller_locations (
+              seller_user_id TEXT PRIMARY KEY,
+              latitude REAL NOT NULL,
+              longitude REAL NOT NULL,
+              accuracy REAL,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              updated_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+              FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+          `);
+          await queryRun(upsertSql, [sellerId, latitude, longitude, acc]);
+        } else {
+          throw dbErr;
+        }
+      }
 
       res.json({
         success: true,
@@ -62,12 +83,18 @@ sellersRouter.post(
     try {
       const sellerId = req.user!.id;
 
-      await queryRun(
-        `UPDATE seller_locations
-         SET is_active = 0, updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
-         WHERE seller_user_id = $1`,
-        [sellerId]
-      );
+      try {
+        await queryRun(
+          `UPDATE seller_locations
+           SET is_active = 0, updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+           WHERE seller_user_id = ?`,
+          [sellerId]
+        );
+      } catch (dbErr: any) {
+        if (!dbErr.message?.includes('seller_locations') && dbErr.code !== '42P01') {
+          throw dbErr;
+        }
+      }
 
       res.json({
         success: true,

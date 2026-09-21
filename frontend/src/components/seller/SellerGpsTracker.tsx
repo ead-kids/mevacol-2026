@@ -25,10 +25,8 @@ export const SellerGpsTracker: React.FC = () => {
       setErrorMessage('');
     } catch (err: any) {
       console.warn('No se pudo enviar la ubicación al servidor:', err);
-      // No marcar como error crítico si es un fallo transitorio de red
-      if (err.message && !err.message.includes('Failed to fetch')) {
-        setErrorMessage('Error al sincronizar con servidor');
-      }
+      const msg = err.message || 'Error al conectar con servidor';
+      setErrorMessage(msg);
     } finally {
       setIsLocating(false);
     }
