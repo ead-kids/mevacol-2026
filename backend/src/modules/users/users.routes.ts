@@ -31,6 +31,8 @@ usersRouter.get('/', async (req: Request, res: Response) => {
         u.full_name,
         u.email,
         u.phone,
+        u.document_id,
+        u.address,
         u.role_code,
         r.name as role_name,
         u.is_active,
@@ -50,7 +52,7 @@ usersRouter.get('/', async (req: Request, res: Response) => {
 // 3. Crear nuevo usuario (Vendedor, Entregador o Administrador)
 usersRouter.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, full_name, password, email, phone, role_code } = req.body;
+    const { username, full_name, password, email, phone, role_code, document_id, address } = req.body;
 
     if (!username || !full_name || !password || !role_code) {
       res.status(400).json({
@@ -99,8 +101,8 @@ usersRouter.post('/', async (req: Request, res: Response): Promise<void> => {
     const newUserId = uuidv4();
 
     await queryRun(
-      `INSERT INTO users (id, username, full_name, email, password_hash, role_code, phone, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
+      `INSERT INTO users (id, username, full_name, email, password_hash, role_code, phone, document_id, address, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
       [
         newUserId,
         cleanUsername,
@@ -109,6 +111,8 @@ usersRouter.post('/', async (req: Request, res: Response): Promise<void> => {
         passwordHash,
         role_code,
         phone ? String(phone).trim() : null,
+        document_id ? String(document_id).trim() : null,
+        address ? String(address).trim() : null,
       ]
     );
 
@@ -198,7 +202,7 @@ usersRouter.patch('/:id/status', async (req: Request, res: Response): Promise<vo
 usersRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { full_name, email, phone, role_code, password } = req.body;
+    const { full_name, email, phone, role_code, password, document_id, address } = req.body;
 
     const existingUser = await queryOne<any>('SELECT id, username, role_code FROM users WHERE id = ?', [id]);
     if (!existingUser) {
@@ -211,6 +215,8 @@ usersRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
       String(full_name).trim(),
       email ? String(email).trim().toLowerCase() : null,
       phone ? String(phone).trim() : null,
+      document_id !== undefined ? (document_id ? String(document_id).trim() : null) : undefined,
+      address !== undefined ? (address ? String(address).trim() : null) : undefined,
       role_code || existingUser.role_code,
     ];
 
@@ -223,7 +229,7 @@ usersRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
     params.push(id);
 
     await queryRun(
-      `UPDATE users SET full_name = ?, email = ?, phone = ?, role_code = ? ${passwordClause}, updated_at = NOW() WHERE id = ?`,
+      `UPDATE users SET full_name = ?, email = ?, phone = ?, document_id = COALESCE(?, document_id), address = COALESCE(?, address), role_code = ? ${passwordClause}, updated_at = NOW() WHERE id = ?`,
       params
     );
 

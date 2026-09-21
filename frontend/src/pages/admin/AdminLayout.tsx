@@ -3,6 +3,7 @@ import { AdminSidebar } from '../../components/layout/AdminSidebar';
 import { AdminDashboard } from './AdminDashboard';
 import { AdminUsers } from './AdminUsers';
 import { AdminCustomers } from './AdminCustomers';
+import { AdminSellers } from './AdminSellers';
 import { AdminProducts } from './AdminProducts';
 import { AdminSales } from './AdminSales';
 import { AdminInvoices } from './AdminInvoices';
@@ -76,6 +77,8 @@ export const AdminLayout: React.FC = () => {
             <h1 className="admin-topbar-title">
               {currentTab === 'dashboard'
                 ? 'Panel de Control Maestro'
+                : currentTab === 'sellers'
+                ? 'Gestión de Vendedores'
                 : currentTab === 'customers'
                 ? 'Directorio de Clientes'
                 : currentTab === 'products' || currentTab === 'inventory'
@@ -119,6 +122,8 @@ export const AdminLayout: React.FC = () => {
               onGoToUsers={() => setCurrentTab('users')}
               onGoToTab={setCurrentTab}
             />
+          ) : currentTab === 'sellers' ? (
+            <AdminSellers />
           ) : currentTab === 'customers' ? (
             <AdminCustomers />
           ) : currentTab === 'products' || currentTab === 'inventory' ? (

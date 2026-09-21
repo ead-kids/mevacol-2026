@@ -34,6 +34,14 @@ export async function initDatabase(): Promise<void> {
       await execRaw(stmt);
     }
 
+    // Migraciones automáticas no destructivas (Soporte Fase 2 Vendedores)
+    try {
+      await queryRun('ALTER TABLE users ADD COLUMN IF NOT EXISTS document_id TEXT');
+      await queryRun('ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT');
+    } catch (migErr) {
+      console.warn('Nota migración users:', migErr);
+    }
+
     // Sembrar roles del sistema si no existen
     await queryRun(`
       INSERT INTO roles (code, name, description)

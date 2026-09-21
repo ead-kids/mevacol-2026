@@ -6,11 +6,34 @@ export interface User {
   full_name: string;
   email: string | null;
   phone: string | null;
+  document_id?: string | null;
+  address?: string | null;
   role_code: RoleCode;
   role_name?: string;
   is_active: number;
   created_at: string;
   updated_at?: string;
+}
+
+export interface SellerUser extends User {
+  total_sales: number;
+  total_cop: number;
+  today_sales: number;
+  today_cop: number;
+  month_sales: number;
+  month_cop: number;
+}
+
+export interface SellerStats {
+  total_sellers: number;
+  active_sellers: number;
+  inactive_sellers: number;
+  total_sales_count: number;
+  total_sales_cop: number;
+  today_sales_count: number;
+  today_sales_cop: number;
+  month_sales_count: number;
+  month_sales_cop: number;
 }
 
 export interface SystemStatus {

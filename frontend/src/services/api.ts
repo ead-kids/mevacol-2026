@@ -23,6 +23,8 @@ import type {
   ReportResult,
   ReportFilters,
   FilterOptions,
+  SellerUser,
+  SellerStats,
 } from '../types';
 
 // En desarrollo: usa el proxy de Vite (/api → localhost:4000).
@@ -586,6 +588,77 @@ class ApiService {
 
   async getReportFilterOptions(): Promise<{ success: boolean } & FilterOptions> {
     return this.request<{ success: boolean } & FilterOptions>('/reports/filter-options');
+  }
+
+  // --- MÓDULO VENDEDORES (Fase 2) ---
+  async getSellers(search?: string, status?: string): Promise<{ success: boolean; sellers: SellerUser[] }> {
+    const query = new URLSearchParams();
+    if (search) query.append('search', search);
+    if (status) query.append('status', status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return this.request<{ success: boolean; sellers: SellerUser[] }>(`/sellers${qs}`);
+  }
+
+  async getSellersStats(): Promise<{ success: boolean; stats: SellerStats }> {
+    return this.request<{ success: boolean; stats: SellerStats }>('/sellers/stats');
+  }
+
+  async getSellerById(id: string): Promise<{ success: boolean; seller: SellerUser; metrics: any }> {
+    return this.request<{ success: boolean; seller: SellerUser; metrics: any }>(`/sellers/${id}`);
+  }
+
+  async getSellerSales(id: string, page: number = 1, limit: number = 20): Promise<{
+    success: boolean;
+    sales: Sale[];
+    pagination: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    return this.request(`/sellers/${id}/sales?page=${page}&limit=${limit}`);
+  }
+
+  async createSeller(data: {
+    username: string;
+    full_name: string;
+    password: string;
+    email?: string;
+    phone?: string;
+    document_id?: string;
+    address?: string;
+  }): Promise<{ success: boolean; message: string; seller: User }> {
+    return this.request('/sellers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSeller(
+    id: string,
+    data: {
+      full_name: string;
+      email?: string;
+      phone?: string;
+      document_id?: string;
+      address?: string;
+      password?: string;
+    }
+  ): Promise<{ success: boolean; message: string }> {
+    return this.request(`/sellers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async toggleSellerStatus(id: string, is_active: boolean | number): Promise<{ success: boolean; message: string }> {
+    return this.request(`/sellers/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active }),
+    });
+  }
+
+  async deleteSeller(id: string, adminPassword?: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/sellers/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ admin_password: adminPassword }),
+    });
   }
 }
 

@@ -49,7 +49,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       title: 'Comercial & Clientes',
       items: [
-        { id: 'sellers', name: 'Vendedores', icon: UserCheck, active: false, phase: 2 },
+        { id: 'sellers', name: 'Vendedores', icon: UserCheck, active: true, phase: 2 },
         { id: 'customers', name: 'Clientes', icon: UserSquare2, active: true, phase: 2 },
         { id: 'sales', name: 'Ventas', icon: ShoppingCart, active: true, phase: 4 },
         { id: 'invoices', name: 'Facturación', icon: Receipt, active: true, phase: 5 },

@@ -435,6 +435,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoToUsers, onG
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           {[
             { label: 'Usuarios', icon: <Users size={15} />, tab: 'users' },
+            { label: 'Vendedores', icon: <UserCheck size={15} />, tab: 'sellers' },
             { label: 'Clientes', icon: <Users size={15} />, tab: 'customers' },
             { label: 'Productos', icon: <Package size={15} />, tab: 'products' },
             { label: 'Ventas', icon: <ShoppingCart size={15} />, tab: 'sales' },
