@@ -13,8 +13,8 @@ WORKDIR /build
 # Copiar manifiestos de dependencias primero (aprovecha cache de capas Docker)
 COPY backend/package*.json ./
 
-# Instalar TODAS las dependencias (incluye TypeScript para compilar)
-RUN npm ci
+# Instalar dependencias para compilar
+RUN npm install
 
 # Copiar código fuente TypeScript
 COPY backend/src ./src
@@ -32,9 +32,9 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Copiar manifiestos e instalar SOLO dependencias de producción
+# Copiar manifiestos e instalar dependencias de producción
 COPY backend/package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copiar código compilado + schema SQL desde la etapa de build
 COPY --from=builder /build/dist ./dist
