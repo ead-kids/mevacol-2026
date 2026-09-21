@@ -30,10 +30,25 @@ import type {
   SellerLocationsResponse,
 } from '../types';
 
-// En desarrollo: usa el proxy de Vite (/api → localhost:4000).
-// En producción: configura VITE_API_URL en frontend/.env con la URL completa del backend.
-// Ejemplo producción: VITE_API_URL=https://api.midominio.com/api
-const API_BASE: string = (import.meta as any).env?.VITE_API_URL ?? '/api';
+// Configuración robusta de API_BASE:
+// 1. Si existe VITE_API_URL configurado explícitamente, úsalo.
+// 2. Si se ejecuta en la nube en Vercel (*.vercel.app) o GitHub Pages, enlaza automáticamente con el backend activo en Render.
+// 3. En entorno local usa el proxy '/api'.
+const getApiBase = (): string => {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.startsWith('http')) {
+    return envUrl;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host.includes('vercel.app') || host.includes('github.io')) {
+      return 'https://mevacol-2026.onrender.com/api';
+    }
+  }
+  return envUrl || '/api';
+};
+
+const API_BASE: string = getApiBase();
 
 class ApiService {
   private token: string | null = null;
@@ -75,7 +90,17 @@ class ApiService {
         headers,
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let data: any;
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(`Error en servidor (${response.status}): ${text.slice(0, 100)}`);
+        }
+        throw new Error('Respuesta inválida del servidor (esperado JSON).');
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Ocurrió un error en la solicitud.');
