@@ -29,12 +29,17 @@ jobs:
       #     Render Dashboard → tu servicio → Settings → Deploy Hook → Copy
       - name: 🚀 Disparar deploy en Render.com
         run: |
-          curl -s --fail-with-body \
-            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
-            | jq '.'
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "⚠️ Advertencia: RENDER_DEPLOY_HOOK_URL no está configurado en GitHub Secrets."
+            echo "Si Auto-Deploy está activo en Render, el build se disparará automáticamente por el push a main."
+          else
+            echo "Disparando deploy hook de Render..."
+            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_URL")
+            echo "Respuesta de Render: $RESPONSE"
+          fi
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 
       # 3. Esperar y verificar que el deploy fue aceptado
       - name: ✅ Deploy disparado exitosamente
-        run: echo "Deploy enviado a Render.com — monitorea el progreso en https://dashboard.render.com"
+        run: echo "Verifica el estado del build en https://dashboard.render.com"

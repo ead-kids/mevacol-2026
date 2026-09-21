@@ -9,7 +9,7 @@
 
 services:
   - type: web
-    name: mevacol-api
+    name: mevacol-2026
     runtime: docker
     # Render construirá la imagen desde el Dockerfile en la raíz del repo
     dockerfilePath: ./Dockerfile
