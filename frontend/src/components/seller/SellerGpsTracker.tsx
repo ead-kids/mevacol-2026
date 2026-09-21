@@ -368,7 +368,10 @@ export const SellerGpsTracker: React.FC = () => {
 
         {errorMessage && isSharing && !permissionDenied && (
           <button
-            onClick={requestLocation}
+            onClick={() => {
+              setErrorMessage('');
+              requestLocation();
+            }}
             style={{
               padding: '4px 8px',
               borderRadius: '6px',
