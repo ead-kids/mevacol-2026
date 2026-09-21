@@ -405,6 +405,15 @@ export const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
               </span>
             </div>
 
+            {invoice.discount_cop > 0 && (
+              <div>
+                <span style={{ fontWeight: 'normal' }}>DESCUENTO: </span>
+                <span style={{ fontWeight: 'bold' }}>
+                  -{formatCOP(invoice.discount_cop)}
+                </span>
+              </div>
+            )}
+
             <div
               style={{
                 fontSize: '12px',

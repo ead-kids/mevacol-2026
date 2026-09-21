@@ -16,6 +16,7 @@ import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { reportsRouter } from './modules/reports/reports.routes';
 import { sellersRouter } from './modules/sellers/sellers.routes';
 import { campaignsRouter } from './modules/campaigns/campaigns.routes';
+import { discountsRouter } from './modules/discounts/discounts.routes';
 import { errorHandler } from './middlewares/error.middleware';
 
 export function createServer(): Application {
@@ -76,6 +77,7 @@ export function createServer(): Application {
     app.use(`${prefix}/reports`, reportsRouter);
     app.use(`${prefix}/sellers`, sellersRouter);
     app.use(`${prefix}/campaigns`, campaignsRouter);
+    app.use(`${prefix}/discounts`, discountsRouter);
   };
 
   mountRoutes('/api');

@@ -257,7 +257,28 @@ CREATE TABLE IF NOT EXISTS seller_locations (
   FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- 17. Sistema de Descuentos (Fase 6)
+CREATE TABLE IF NOT EXISTS discounts (
+  id TEXT PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  discount_type TEXT NOT NULL, -- 'PERCENTAGE' o 'FIXED'
+  value REAL NOT NULL,
+  product_id TEXT,
+  min_quantity INTEGER NOT NULL DEFAULT 1,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+  updated_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+);
+
 -- Índices de rendimiento
+CREATE INDEX IF NOT EXISTS idx_discounts_active ON discounts(is_active);
+CREATE INDEX IF NOT EXISTS idx_discounts_product ON discounts(product_id);
+CREATE INDEX IF NOT EXISTS idx_discounts_dates ON discounts(start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_seller_loc_active ON seller_locations(is_active);
 CREATE INDEX IF NOT EXISTS idx_seller_loc_updated ON seller_locations(updated_at);
 CREATE INDEX IF NOT EXISTS idx_campaign_sellers_camp ON campaign_sellers(campaign_id);

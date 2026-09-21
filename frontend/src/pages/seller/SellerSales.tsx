@@ -12,10 +12,13 @@ import {
   X,
   RefreshCw,
   Printer,
+  Tag,
 } from 'lucide-react';
-import type { Sale, Customer, Product, SaleStats, Invoice } from '../../types';
+import type { Sale, Customer, Product, SaleStats, Invoice, Discount } from '../../types';
 import { api } from '../../services/api';
+import { localDb } from '../../db/localDb';
 import { InvoiceDocument } from '../../components/invoices/InvoiceDocument';
+import { calculateItemDiscount, calculateCartTotals } from '../../utils/discountUtils';
 
 interface SellerSalesProps {
   onBack: () => void;
@@ -32,6 +35,7 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
   // Datos para creación de venta
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [activeDiscounts, setActiveDiscounts] = useState<Discount[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [cart, setCart] = useState<Array<{
@@ -62,6 +66,55 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
         setSelectedCustomerId(custRes.customers[0].id);
       }
       setProducts(prodRes.products.filter((p) => p.current_stock > 0));
+
+      // Cargar descuentos vigentes y almacenar en cache local para modo offline
+      try {
+        const discRes = await api.getActiveDiscounts();
+        if (discRes && discRes.success && discRes.discounts) {
+          setActiveDiscounts(discRes.discounts);
+          try {
+            await localDb.cachedDiscounts.clear();
+            await localDb.cachedDiscounts.bulkPut(
+              discRes.discounts.map((d) => ({
+                id: d.id,
+                code: d.code,
+                name: d.name,
+                description: d.description || null,
+                discount_type: d.discount_type,
+                value: d.value,
+                product_id: d.product_id,
+                min_quantity: d.min_quantity,
+                start_date: d.start_date,
+                end_date: d.end_date,
+                is_active: d.is_active ? 1 : 0,
+              }))
+            );
+          } catch (dexErr) {
+            console.warn('Error al guardar descuentos en indexedDB:', dexErr);
+          }
+        }
+      } catch (dErr) {
+        // Fallback offline
+        try {
+          const cached = await localDb.cachedDiscounts.where('is_active').equals(1).toArray();
+          setActiveDiscounts(
+            cached.map((c) => ({
+              id: c.id,
+              code: c.code,
+              name: c.name,
+              description: c.description || null,
+              discount_type: c.discount_type,
+              value: c.value,
+              product_id: c.product_id || null,
+              min_quantity: c.min_quantity || 1,
+              start_date: c.start_date,
+              end_date: c.end_date,
+              is_active: true,
+              created_at: '',
+            }))
+          );
+        } catch {}
+      }
     } catch (err: any) {
       console.error('Error al cargar datos de ventas:', err);
       setFeedback({ type: 'error', text: err.message || 'Error al cargar información.' });
@@ -142,7 +195,15 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
     setCart(cart.filter((item) => item.product.id !== productId));
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.product.price_cop, 0);
+  const cartTotals = calculateCartTotals(
+    cart.map((item) => ({
+      product_id: item.product.id,
+      price_cop: item.product.price_cop,
+      quantity: item.quantity,
+    })),
+    activeDiscounts
+  );
+  const cartTotal = cartTotals.total_cop;
 
   const handleCreateSale = async () => {
     const customerIdToUse = selectedCustomerId || (customers.length > 0 ? customers[0].id : '');
@@ -175,7 +236,7 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
         sale_id: res.sale_id,
         invoice_number: res.invoice_number,
         invoice_code: res.invoice_code,
-        total_cop: cartTotal,
+        total_cop: cartTotals.total_cop,
         customer_name: customer ? customer.name : 'Cliente',
       });
 
@@ -428,13 +489,51 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
                       )}
 
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {p.name}
-                        </div>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                          {p.unit_measure} &bull; <strong style={{ color: '#10b981' }}>{formatCOP(p.price_cop)}</strong> &bull;{' '}
-                          <span style={{ color: isLow ? '#fbbf24' : '#60a5fa' }}>Disp: {p.current_stock}</span>
-                        </div>
+                        {(() => {
+                          const discInfo = calculateItemDiscount(p.id, p.price_cop, activeDiscounts);
+                          return (
+                            <>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {p.name}
+                                </span>
+                                {discInfo.badge_text && (
+                                  <span
+                                    style={{
+                                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                      color: '#ffffff',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 800,
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2px',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Tag size={10} />
+                                    {discInfo.badge_text}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                                {p.unit_measure} &bull;{' '}
+                                {discInfo.discount ? (
+                                  <>
+                                    <span style={{ textDecoration: 'line-through', opacity: 0.65, marginRight: '4px' }}>
+                                      {formatCOP(p.price_cop)}
+                                    </span>
+                                    <strong style={{ color: '#10b981' }}>{formatCOP(discInfo.final_price_cop)}</strong>
+                                  </>
+                                ) : (
+                                  <strong style={{ color: '#10b981' }}>{formatCOP(p.price_cop)}</strong>
+                                )}{' '}
+                                &bull; <span style={{ color: isLow ? '#fbbf24' : '#60a5fa' }}>Disp: {p.current_stock}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
 
                       <button
@@ -537,9 +636,27 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '0.88rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.product.name}</div>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          {formatCOP(item.product.price_cop)} c/u &bull; Subtotal: <strong style={{ color: '#10b981' }}>{formatCOP(item.quantity * item.product.price_cop)}</strong>
-                        </div>
+                        {(() => {
+                          const disc = calculateItemDiscount(item.product.id, item.product.price_cop, activeDiscounts);
+                          const itemTotalCop = disc.final_price_cop * item.quantity;
+                          return (
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              {disc.discount ? (
+                                <>
+                                  <span style={{ textDecoration: 'line-through', opacity: 0.65, marginRight: '4px' }}>
+                                    {formatCOP(item.product.price_cop)}
+                                  </span>
+                                  <strong style={{ color: '#10b981' }}>{formatCOP(disc.final_price_cop)}</strong>
+                                  <span style={{ color: '#10b981', marginLeft: '4px', fontWeight: 600 }}>({disc.badge_text})</span>
+                                </>
+                              ) : (
+                                <span>{formatCOP(item.product.price_cop)} c/u</span>
+                              )}
+                              {' '}&bull; Subtotal:{' '}
+                              <strong style={{ color: '#10b981' }}>{formatCOP(itemTotalCop)}</strong>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                         {/* Controles de Cantidad */}
@@ -632,9 +749,19 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem' }}>
                         <span style={{ color: 'var(--text-secondary)' }}>Subtotal:</span>
                         <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>
-                          {formatCOP(cartTotal)}
+                          {formatCOP(cartTotals.subtotal_cop)}
                         </strong>
                       </div>
+                      {cartTotals.has_discounts && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem', color: '#10b981' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Tag size={13} /> Descuentos promocionales:
+                          </span>
+                          <strong style={{ fontSize: '1rem' }}>
+                            -{formatCOP(cartTotals.total_discount_cop)}
+                          </strong>
+                        </div>
+                      )}
                       <div style={{
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -644,7 +771,7 @@ export const SellerSales: React.FC<SellerSalesProps> = ({ onBack, initialMode = 
                       }}>
                         <span style={{ fontSize: '0.95rem', fontWeight: 800 }}>TOTAL VENTA:</span>
                         <strong style={{ fontSize: '1.5rem', color: '#10b981', fontWeight: 800 }}>
-                          {formatCOP(cartTotal)}
+                          {formatCOP(cartTotals.total_cop)}
                         </strong>
                       </div>
                     </div>

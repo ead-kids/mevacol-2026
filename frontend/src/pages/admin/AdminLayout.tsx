@@ -5,6 +5,7 @@ import { AdminUsers } from './AdminUsers';
 import { AdminCustomers } from './AdminCustomers';
 import { AdminSellers } from './AdminSellers';
 import { AdminCampaigns } from './AdminCampaigns';
+import { AdminDiscounts } from './AdminDiscounts';
 import { AdminProducts } from './AdminProducts';
 import { AdminSales } from './AdminSales';
 import { AdminInvoices } from './AdminInvoices';
@@ -83,6 +84,8 @@ export const AdminLayout: React.FC = () => {
                 ? 'Gestión de Vendedores'
                 : currentTab === 'campaigns'
                 ? 'Campañas e Incentivos'
+                : currentTab === 'discounts'
+                ? 'Gestión de Descuentos & Promociones'
                 : currentTab === 'customers'
                 ? 'Directorio de Clientes'
                 : currentTab === 'products' || currentTab === 'inventory'
@@ -132,6 +135,8 @@ export const AdminLayout: React.FC = () => {
             <AdminSellers />
           ) : currentTab === 'campaigns' ? (
             <AdminCampaigns />
+          ) : currentTab === 'discounts' ? (
+            <AdminDiscounts />
           ) : currentTab === 'customers' ? (
             <AdminCustomers />
           ) : currentTab === 'products' || currentTab === 'inventory' ? (

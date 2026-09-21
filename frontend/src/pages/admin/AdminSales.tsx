@@ -16,10 +16,12 @@ import {
   Trash2,
   User as UserIcon,
   Printer,
+  Tag,
 } from 'lucide-react';
-import type { Sale, SaleStats, Customer, Product, User, Invoice } from '../../types';
+import type { Sale, SaleStats, Customer, Product, User, Invoice, Discount } from '../../types';
 import { api } from '../../services/api';
 import { InvoiceDocument } from '../../components/invoices/InvoiceDocument';
+import { calculateItemDiscount, calculateCartTotals } from '../../utils/discountUtils';
 
 export const AdminSales: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -38,6 +40,7 @@ export const AdminSales: React.FC = () => {
   // Datos para creación de venta
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [activeDiscounts, setActiveDiscounts] = useState<Discount[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [productSearchTerm, setProductSearchTerm] = useState('');
@@ -93,13 +96,17 @@ export const AdminSales: React.FC = () => {
 
   const loadCreateFormData = async () => {
     try {
-      const [custRes, prodRes] = await Promise.all([
+      const [custRes, prodRes, discRes] = await Promise.all([
         api.getCustomers({ status: 'active' }),
         api.getProducts({ status: 'active' }),
+        api.getActiveDiscounts().catch(() => ({ success: false, discounts: [] as Discount[] })),
       ]);
       setCustomers(custRes.customers);
       // Solo productos con stock disponible
       setProducts(prodRes.products.filter((p) => p.current_stock > 0));
+      if (discRes && discRes.success && discRes.discounts) {
+        setActiveDiscounts(discRes.discounts);
+      }
     } catch (err) {
       console.error('Error al cargar datos para venta:', err);
     }
@@ -210,8 +217,15 @@ export const AdminSales: React.FC = () => {
     setSaleItems(saleItems.filter((_, i) => i !== index));
   };
 
-  const calculateSaleTotal = () => {
-    return saleItems.reduce((acc, item) => acc + item.quantity * item.price_cop, 0);
+  const calculateSaleTotals = () => {
+    return calculateCartTotals(
+      saleItems.map((item) => ({
+        product_id: item.product_id,
+        price_cop: item.price_cop,
+        quantity: item.quantity,
+      })),
+      activeDiscounts
+    );
   };
 
   const handleSubmitSale = async (e: React.FormEvent) => {
@@ -951,9 +965,25 @@ export const AdminSales: React.FC = () => {
                         >
                           <div style={{ flex: 1, minWidth: '160px' }}>
                             <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{item.product_name}</div>
-                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                              Ref: {item.product_code} &bull; {item.unit_measure} &bull; {formatCOP(item.price_cop)} c/u
-                            </div>
+                            {(() => {
+                              const disc = calculateItemDiscount(item.product_id, item.price_cop, activeDiscounts);
+                              return (
+                                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                  Ref: {item.product_code} &bull; {item.unit_measure} &bull;{' '}
+                                  {disc.discount ? (
+                                    <>
+                                      <span style={{ textDecoration: 'line-through', opacity: 0.65, marginRight: '4px' }}>
+                                        {formatCOP(item.price_cop)}
+                                      </span>
+                                      <strong style={{ color: '#10b981' }}>{formatCOP(disc.final_price_cop)}</strong>
+                                      <span style={{ color: '#10b981', marginLeft: '4px', fontWeight: 600 }}>({disc.badge_text})</span>
+                                    </>
+                                  ) : (
+                                    <span>{formatCOP(item.price_cop)} c/u</span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           {/* Control de cantidad */}
@@ -1013,9 +1043,15 @@ export const AdminSales: React.FC = () => {
                           {/* Subtotal del item */}
                           <div style={{ textAlign: 'right', minWidth: '100px', marginLeft: '12px' }}>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Subtotal:</div>
-                            <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#10b981' }}>
-                              {formatCOP(item.quantity * item.price_cop)}
-                            </span>
+                            {(() => {
+                              const disc = calculateItemDiscount(item.product_id, item.price_cop, activeDiscounts);
+                              const lineTotal = disc.final_price_cop * item.quantity;
+                              return (
+                                <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#10b981' }}>
+                                  {formatCOP(lineTotal)}
+                                </span>
+                              );
+                            })()}
                           </div>
 
                           <button
@@ -1064,35 +1100,51 @@ export const AdminSales: React.FC = () => {
                 </div>
 
                 {/* 5. Tarjeta de Liquidación (Subtotal y Total) */}
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  padding: '16px 20px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.9) 100%)',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Subtotal Productos:</span>
-                    <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>
-                      {formatCOP(calculateSaleTotal())}
-                    </strong>
-                  </div>
+                {(() => {
+                  const saleTotals = calculateSaleTotals();
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      padding: '16px 20px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Subtotal Productos:</span>
+                        <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>
+                          {formatCOP(saleTotals.subtotal_cop)}
+                        </strong>
+                      </div>
 
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderTop: '1px solid rgba(16, 185, 129, 0.3)',
-                    paddingTop: '8px',
-                  }}>
-                    <span style={{ fontSize: '1.05rem', fontWeight: 800 }}>TOTAL A COBRAR:</span>
-                    <span style={{ fontSize: '1.65rem', fontWeight: 800, color: '#10b981' }}>
-                      {formatCOP(calculateSaleTotal())}
-                    </span>
-                  </div>
-                </div>
+                      {saleTotals.has_discounts && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem', color: '#10b981' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Tag size={13} /> Descuentos Promocionales:
+                          </span>
+                          <strong style={{ fontSize: '1rem' }}>
+                            -{formatCOP(saleTotals.total_discount_cop)}
+                          </strong>
+                        </div>
+                      )}
+
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderTop: '1px solid rgba(16, 185, 129, 0.3)',
+                        paddingTop: '8px',
+                      }}>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 800 }}>TOTAL A COBRAR:</span>
+                        <span style={{ fontSize: '1.65rem', fontWeight: 800, color: '#10b981' }}>
+                          {formatCOP(saleTotals.total_cop)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* 6. Observaciones / Notas */}
                 <div>

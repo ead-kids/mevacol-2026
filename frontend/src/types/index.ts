@@ -566,3 +566,62 @@ export interface SellerLocationsResponse {
   sellers: SellerLocation[];
 }
 
+// ── Módulo de Descuentos (Fase 6) ───────────────────────────────────────────
+export type DiscountType = 'PERCENTAGE' | 'FIXED';
+export type DiscountStatus = 'ACTIVE' | 'EXPIRED' | 'UPCOMING' | 'INACTIVE';
+
+export interface Discount {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  discount_type: DiscountType;
+  value: number;
+  product_id: string | null;
+  min_quantity: number;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  computed_status?: DiscountStatus;
+  product_name?: string | null;
+  product_code?: string | null;
+  product_price_cop?: number | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface DiscountStats {
+  total: number;
+  active: number;
+  expired: number;
+  inactive: number;
+  total_discount_granted_cop: number;
+  total_discounted_sales: number;
+}
+
+export interface CreateDiscountInput {
+  code?: string;
+  name: string;
+  description?: string;
+  discount_type: DiscountType;
+  value: number;
+  product_id?: string | null;
+  min_quantity?: number;
+  start_date: string;
+  end_date: string;
+  is_active?: boolean | number;
+}
+
+export interface UpdateDiscountInput {
+  name: string;
+  description?: string;
+  discount_type: DiscountType;
+  value: number;
+  product_id?: string | null;
+  min_quantity?: number;
+  start_date: string;
+  end_date: string;
+  is_active?: boolean | number;
+}
+
+

@@ -77,6 +77,28 @@ export async function initDatabase(): Promise<void> {
       await queryRun('UPDATE seller_locations SET user_id = seller_user_id WHERE user_id IS NULL AND seller_user_id IS NOT NULL');
       await queryRun('CREATE INDEX IF NOT EXISTS idx_seller_loc_active ON seller_locations(is_active)');
       await queryRun('CREATE INDEX IF NOT EXISTS idx_seller_loc_updated ON seller_locations(updated_at)');
+
+      // Migración Fase 6: Sistema de Descuentos
+      await queryRun(`
+        CREATE TABLE IF NOT EXISTS discounts (
+          id TEXT PRIMARY KEY,
+          code TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          discount_type TEXT NOT NULL,
+          value REAL NOT NULL,
+          product_id TEXT,
+          min_quantity INTEGER NOT NULL DEFAULT 1,
+          start_date TEXT NOT NULL,
+          end_date TEXT NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+          updated_at TEXT NOT NULL DEFAULT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+        )
+      `);
+      await queryRun('CREATE INDEX IF NOT EXISTS idx_discounts_active ON discounts(is_active)');
+      await queryRun('CREATE INDEX IF NOT EXISTS idx_discounts_product ON discounts(product_id)');
+      await queryRun('CREATE INDEX IF NOT EXISTS idx_discounts_dates ON discounts(start_date, end_date)');
     } catch (migErr) {
       console.warn('Nota migración fases:', migErr);
     }

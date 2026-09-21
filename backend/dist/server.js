@@ -22,6 +22,7 @@ const dashboard_routes_1 = require("./modules/dashboard/dashboard.routes");
 const reports_routes_1 = require("./modules/reports/reports.routes");
 const sellers_routes_1 = require("./modules/sellers/sellers.routes");
 const campaigns_routes_1 = require("./modules/campaigns/campaigns.routes");
+const discounts_routes_1 = require("./modules/discounts/discounts.routes");
 const error_middleware_1 = require("./middlewares/error.middleware");
 function createServer() {
     const app = (0, express_1.default)();
@@ -78,6 +79,7 @@ function createServer() {
         app.use(`${prefix}/reports`, reports_routes_1.reportsRouter);
         app.use(`${prefix}/sellers`, sellers_routes_1.sellersRouter);
         app.use(`${prefix}/campaigns`, campaigns_routes_1.campaignsRouter);
+        app.use(`${prefix}/discounts`, discounts_routes_1.discountsRouter);
     };
     mountRoutes('/api');
     mountRoutes('');

@@ -32,11 +32,26 @@ export interface LocalSale {
   synced: boolean;
 }
 
+export interface LocalDiscount {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  discount_type: 'PERCENTAGE' | 'FIXED';
+  value: number;
+  product_id?: string | null;
+  min_quantity?: number;
+  start_date: string;
+  end_date: string;
+  is_active: number;
+}
+
 export class MevacolLocalDatabase extends Dexie {
   offlineQueue!: Table<OfflineQueueItem, string>;
   cachedCustomers!: Table<LocalCustomer, string>;
   cachedProducts!: Table<LocalProduct, string>;
   cachedSales!: Table<LocalSale, string>;
+  cachedDiscounts!: Table<LocalDiscount, string>;
 
   constructor() {
     super('MevacolLocalDB');
@@ -45,6 +60,9 @@ export class MevacolLocalDatabase extends Dexie {
       cachedCustomers: 'id, id_number, name, synced',
       cachedProducts: 'id, code, name',
       cachedSales: 'id, customer_id, seller_user_id, status, synced',
+    });
+    this.version(2).stores({
+      cachedDiscounts: 'id, code, product_id, is_active',
     });
   }
 }

@@ -178,8 +178,20 @@ salesRouter.post('/', async (req: Request, res: Response): Promise<void> => {
       }
       const invoiceNumber = `VTA-${String(maxNumber + 1).padStart(4, '0')}`;
 
-      // 3. Validar productos y calcular totales
-      let calculatedTotal = 0;
+      // 3. Consultar descuentos vigentes para aplicar automáticamente
+      let activeDiscounts: any[] = [];
+      try {
+        activeDiscounts = await txAll<any>(`
+          SELECT id, code, name, discount_type, value, product_id, min_quantity
+          FROM discounts
+          WHERE is_active = 1
+            AND SUBSTRING(start_date, 1, 10) <= TO_CHAR(NOW(), 'YYYY-MM-DD')
+            AND SUBSTRING(end_date, 1, 10) >= TO_CHAR(NOW(), 'YYYY-MM-DD')
+        `);
+      } catch {}
+
+      let calculatedSubtotal = 0;
+      let calculatedDiscount = 0;
       const verifiedItems: any[] = [];
 
       for (const item of items) {
@@ -193,24 +205,69 @@ salesRouter.post('/', async (req: Request, res: Response): Promise<void> => {
         if (product.is_active === 0) throw new Error(`El producto '${product.name}' está desactivado.`);
         if (product.current_stock < qty) throw new Error(`Stock insuficiente para '${product.name}'. Solicitado: ${qty}, Disponible: ${product.current_stock}.`);
 
-        const itemTotal = qty * product.price_cop;
-        calculatedTotal += itemTotal;
-        verifiedItems.push({ product_id: product.id, product_name: product.name, product_code: product.code, quantity: qty, unit_price_cop: product.price_cop, total_cop: itemTotal });
+        const baseUnitPrice = Number(product.price_cop);
+        const itemSubtotal = qty * baseUnitPrice;
+
+        // Evaluar descuentos aplicables
+        const applicableDiscounts = activeDiscounts.filter(
+          (d) => (d.product_id === product.id || !d.product_id) && qty >= Number(d.min_quantity || 1)
+        );
+
+        let unitDiscount = 0;
+        let appliedDiscountCode: string | null = null;
+
+        if (applicableDiscounts.length > 0) {
+          const specific = applicableDiscounts.filter((d) => d.product_id === product.id);
+          const candidates = specific.length > 0 ? specific : applicableDiscounts;
+
+          for (const d of candidates) {
+            let disc = 0;
+            const val = Number(d.value);
+            if (d.discount_type === 'PERCENTAGE') {
+              disc = Math.round((baseUnitPrice * val) / 100);
+            } else if (d.discount_type === 'FIXED') {
+              disc = Math.min(baseUnitPrice, Math.round(val));
+            }
+            if (disc > unitDiscount) {
+              unitDiscount = disc;
+              appliedDiscountCode = d.code;
+            }
+          }
+        }
+
+        const itemDiscount = qty * unitDiscount;
+        const itemTotal = itemSubtotal - itemDiscount;
+
+        calculatedSubtotal += itemSubtotal;
+        calculatedDiscount += itemDiscount;
+
+        verifiedItems.push({
+          product_id: product.id,
+          product_name: product.name,
+          product_code: product.code,
+          quantity: qty,
+          unit_price_cop: baseUnitPrice,
+          discount_cop: itemDiscount,
+          total_cop: itemTotal,
+          applied_discount_code: appliedDiscountCode,
+        });
       }
+
+      const calculatedFinalTotal = calculatedSubtotal - calculatedDiscount;
 
       // 4. Insertar venta
       const saleId = uuidv4();
       await txRun(
         `INSERT INTO sales (id, invoice_number, customer_id, seller_user_id, status, subtotal_cop, discount_cop, total_cop, notes, is_synced, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'REGISTRADA', ?, 0, ?, ?, 1, NOW(), NOW())`,
-        [saleId, invoiceNumber, customer.id, sellerIdToRecord, calculatedTotal, calculatedTotal, notes ? String(notes).trim() : null]
+         VALUES (?, ?, ?, ?, 'REGISTRADA', ?, ?, ?, ?, 1, NOW(), NOW())`,
+        [saleId, invoiceNumber, customer.id, sellerIdToRecord, calculatedSubtotal, calculatedDiscount, calculatedFinalTotal, notes ? String(notes).trim() : null]
       );
 
       // 5. Insertar items y descontar stock
       for (const vi of verifiedItems) {
         await txRun(
-          `INSERT INTO sale_items (id, sale_id, product_id, quantity, unit_price_cop, discount_cop, total_cop, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, NOW())`,
-          [uuidv4(), saleId, vi.product_id, vi.quantity, vi.unit_price_cop, vi.total_cop]
+          `INSERT INTO sale_items (id, sale_id, product_id, quantity, unit_price_cop, discount_cop, total_cop, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+          [uuidv4(), saleId, vi.product_id, vi.quantity, vi.unit_price_cop, vi.discount_cop, vi.total_cop]
         );
         await txRun(`UPDATE products SET current_stock = current_stock - ?, updated_at = NOW() WHERE id = ?`, [vi.quantity, vi.product_id]);
       }
@@ -227,25 +284,52 @@ salesRouter.post('/', async (req: Request, res: Response): Promise<void> => {
 
       await txRun(
         `INSERT INTO invoices (id, invoice_code, sale_id, customer_id, seller_user_id, subtotal_cop, discount_cop, tax_cop, total_cop, notes, dian_status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 'INTERNA', NOW(), NOW())`,
-        [invoiceId, invoiceCode, saleId, customer.id, sellerIdToRecord, calculatedTotal, calculatedTotal, notes ? String(notes).trim() : null]
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'INTERNA', NOW(), NOW())`,
+        [invoiceId, invoiceCode, saleId, customer.id, sellerIdToRecord, calculatedSubtotal, calculatedDiscount, calculatedFinalTotal, notes ? String(notes).trim() : null]
       );
 
-      return { saleId, invoiceNumber, invoiceId, invoiceCode, customerName: customer.name, totalCop: calculatedTotal, itemsCount: verifiedItems.length };
+      return {
+        saleId,
+        invoiceNumber,
+        invoiceId,
+        invoiceCode,
+        customerName: customer.name,
+        subtotalCop: calculatedSubtotal,
+        discountCop: calculatedDiscount,
+        totalCop: calculatedFinalTotal,
+        itemsCount: verifiedItems.length,
+      };
     });
 
-    recordAuditLog({ userId, action: 'SALE_CREATE', entityName: 'sales', entityId: result.saleId, details: { invoice_number: result.invoiceNumber, invoice_code: result.invoiceCode, customer_name: result.customerName, total_cop: result.totalCop, items_count: result.itemsCount }, ipAddress: req.ip, deviceInfo: req.headers['user-agent'] });
+    recordAuditLog({
+      userId,
+      action: 'SALE_CREATE',
+      entityName: 'sales',
+      entityId: result.saleId,
+      details: {
+        invoice_number: result.invoiceNumber,
+        invoice_code: result.invoiceCode,
+        customer_name: result.customerName,
+        subtotal_cop: result.subtotalCop,
+        discount_cop: result.discountCop,
+        total_cop: result.totalCop,
+        items_count: result.itemsCount,
+      },
+      ipAddress: req.ip,
+      deviceInfo: req.headers['user-agent'],
+    });
 
     res.status(201).json({
       success: true,
-      message: `Venta ${result.invoiceNumber} registrada exitosamente (Factura ${result.invoiceCode}) por ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(result.totalCop)}.`,
+      message: `Venta ${result.invoiceNumber} registrada exitosamente (Factura ${result.invoiceCode}) por ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(result.totalCop)}${result.discountCop > 0 ? ` con ahorro de ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(result.discountCop)}` : ''}.`,
       sale_id: result.saleId,
       invoice_number: result.invoiceNumber,
       invoice_id: result.invoiceId,
       invoice_code: result.invoiceCode,
       customer_name: result.customerName,
+      subtotal_cop: result.subtotalCop,
+      discount_cop: result.discountCop,
       total_cop: result.totalCop,
-      subtotal_cop: result.totalCop,
       items_count: result.itemsCount,
     });
   } catch (error: any) {

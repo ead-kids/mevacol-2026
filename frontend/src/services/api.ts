@@ -28,6 +28,10 @@ import type {
   Campaign,
   CampaignDetail,
   SellerLocationsResponse,
+  Discount,
+  DiscountStats,
+  CreateDiscountInput,
+  UpdateDiscountInput,
 } from '../types';
 
 // Configuración robusta de API_BASE:
@@ -772,6 +776,61 @@ class ApiService {
 
   async deleteCampaign(id: string): Promise<{ success: boolean; message: string }> {
     return this.request(`/campaigns/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================
+  // DESCUENTOS - FASE 6
+  // ==========================================
+  async getActiveDiscounts(): Promise<{ success: boolean; discounts: Discount[] }> {
+    return this.request('/discounts/active');
+  }
+
+  async getDiscounts(params?: {
+    search?: string;
+    status?: 'all' | 'active' | 'expired' | 'inactive';
+    product_id?: string;
+  }): Promise<{ success: boolean; discounts: Discount[]; total: number }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.status) query.append('status', params.status);
+    if (params?.product_id) query.append('product_id', params.product_id);
+    const qs = query.toString();
+    return this.request(`/discounts${qs ? `?${qs}` : ''}`);
+  }
+
+  async getDiscountStats(): Promise<{ success: boolean; stats: DiscountStats }> {
+    return this.request('/discounts/stats');
+  }
+
+  async getDiscountById(id: string): Promise<{ success: boolean; discount: Discount }> {
+    return this.request(`/discounts/${id}`);
+  }
+
+  async createDiscount(data: CreateDiscountInput): Promise<{ success: boolean; message: string; discount_id: string }> {
+    return this.request('/discounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateDiscount(id: string, data: UpdateDiscountInput): Promise<{ success: boolean; message: string }> {
+    return this.request(`/discounts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async toggleDiscountStatus(id: string, is_active: boolean): Promise<{ success: boolean; message: string; is_active: boolean }> {
+    return this.request(`/discounts/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active }),
+    });
+  }
+
+  async deleteDiscount(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/discounts/${id}`, {
       method: 'DELETE',
     });
   }
