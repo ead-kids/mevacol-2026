@@ -31,27 +31,22 @@ import type {
 } from '../types';
 
 // Configuración robusta de API_BASE:
-// 1. Si existe VITE_API_URL configurado explícitamente, úsalo asegurando el sufijo /api.
-// 2. Si se ejecuta en la nube en Vercel (*.vercel.app) o GitHub Pages, enlaza automáticamente con el backend activo en Render.
-// 3. En entorno local usa el proxy '/api'.
+// En producción (Vercel o GitHub Pages), usar SIEMPRE el backend activo: mevacol-2026.onrender.com/api
 const getApiBase = (): string => {
-  let url = (import.meta as any).env?.VITE_API_URL;
-  if (!url || typeof url !== 'string' || !url.startsWith('http')) {
-    if (typeof window !== 'undefined') {
-      const host = window.location.hostname;
-      if (host.includes('vercel.app') || host.includes('github.io')) {
-        url = 'https://mevacol-2026.onrender.com/api';
-      }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host.includes('vercel.app') || host.includes('github.io')) {
+      return 'https://mevacol-2026.onrender.com/api';
     }
   }
-  if (!url) {
-    url = '/api';
+
+  let url = (import.meta as any).env?.VITE_API_URL;
+  if (url && typeof url === 'string' && url.startsWith('http') && !url.includes('mevacol-api.onrender.com')) {
+    url = url.trim().replace(/\/+$/, '');
+    return url.endsWith('/api') ? url : `${url}/api`;
   }
-  url = url.trim().replace(/\/+$/, '');
-  if (url.startsWith('http') && !url.endsWith('/api')) {
-    url = `${url}/api`;
-  }
-  return url;
+
+  return '/api';
 };
 
 const API_BASE: string = getApiBase();
@@ -104,11 +99,11 @@ class ApiService {
       if (contentType.includes('application/json')) {
         data = await response.json();
       } else {
-        await response.text();
+        const text = await response.text();
         if (!response.ok) {
-          throw new Error(`Error temporal de conexión (${response.status}). Pulsa reintentar.`);
+          throw new Error(`Error ${response.status} en [${url}]: ${text.slice(0, 80)}`);
         }
-        throw new Error('Respuesta inválida del servidor. Pulsa reintentar.');
+        throw new Error(`Respuesta no JSON de [${url}]. Pulsa reintentar.`);
       }
 
       if (!response.ok) {
